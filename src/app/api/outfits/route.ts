@@ -5,7 +5,7 @@ import { readDb } from "@/lib/db";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-  const db = readDb();
+  const db = await readDb();
   const outfits = db.outfits
     .filter((o) => o.userId === user.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));

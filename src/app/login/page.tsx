@@ -15,16 +15,24 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    if (res.ok) {
-      router.push("/dressing");
-    } else {
-      const data = await res.json();
-      setError(data.error ?? "Connexion impossible");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (res.ok) {
+        router.push("/dressing");
+        return;
+      }
+      const message = await res
+        .json()
+        .then((d) => d.error as string | undefined)
+        .catch(() => undefined);
+      setError(message ?? `Connexion impossible (erreur ${res.status}).`);
+    } catch {
+      setError("Connexion au serveur impossible. Réessayez.");
+    } finally {
       setLoading(false);
     }
   }

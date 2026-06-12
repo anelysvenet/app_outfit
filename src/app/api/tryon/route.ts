@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
   try {
     const { outfitId } = (await req.json()) as { outfitId?: string };
-    const db = readDb();
+    const db = await readDb();
     const outfit = db.outfits.find((o) => o.id === outfitId && o.userId === user.id);
     if (!outfit) {
       return NextResponse.json({ error: "Tenue introuvable" }, { status: 404 });
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
     const image = await generateTryOn(user.photo, garments);
     if (image) {
-      mutateDb((d) => {
+      await mutateDb((d) => {
         const o = d.outfits.find((x) => x.id === outfit.id);
         if (o) o.tryOnImage = image;
       });

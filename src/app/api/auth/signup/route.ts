@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  if (readDb().users.some((u) => u.email === normalizedEmail)) {
+  if ((await readDb()).users.some((u) => u.email === normalizedEmail)) {
     return NextResponse.json(
       { error: "Un compte existe déjà avec cet email." },
       { status: 409 },
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   let photo: string | undefined;
   if (photoDataUrl) {
     const { base64, mediaType } = parseDataUrl(photoDataUrl);
-    photo = saveImage(base64, mediaType);
+    photo = await saveImage(base64, mediaType);
   }
 
   const user: User = {
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     createdAt: new Date().toISOString(),
   };
 
-  mutateDb((db) => {
+  await mutateDb((db) => {
     db.users.push(user);
   });
   await setSessionCookie(user.id);

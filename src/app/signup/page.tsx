@@ -27,18 +27,29 @@ export default function SignupPage() {
   async function submit() {
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, styles, photoDataUrl: photo }),
-    });
-    if (res.ok) {
-      router.push("/dressing");
-    } else {
-      const data = await res.json();
-      setError(data.error ?? "Inscription impossible");
-      setLoading(false);
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, styles, photoDataUrl: photo }),
+      });
+      if (res.ok) {
+        router.push("/dressing");
+        return;
+      }
+      // En cas d'erreur serveur, le corps peut ne pas être du JSON (page 500) :
+      // on lit le texte sans planter pour toujours afficher un message clair.
+      const message = await res
+        .json()
+        .then((d) => d.error as string | undefined)
+        .catch(() => undefined);
+      setError(message ?? `Inscription impossible (erreur ${res.status}).`);
       setStep(0);
+    } catch {
+      setError("Connexion au serveur impossible. Réessayez.");
+      setStep(0);
+    } finally {
+      setLoading(false);
     }
   }
 

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       weather?: WeatherSnapshot | null;
     };
 
-    const db = readDb();
+    const db = await readDb();
     const wardrobe = db.garments.filter((g) => g.userId === user.id);
     const ratedOutfits = db.outfits.filter(
       (o) => o.userId === user.id && typeof o.rating === "number",
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
     }));
 
-    mutateDb((d) => {
+    await mutateDb((d) => {
       d.outfits.push(...outfits);
     });
 

@@ -38,11 +38,26 @@ npm run dev                # http://localhost:3000
 
 ### Variables d'environnement
 
-| Variable            | Obligatoire | Rôle                                                    |
-| ------------------- | ----------- | ------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | ✅          | Analyse des photos + génération des tenues (Claude)     |
-| `AUTH_SECRET`       | —           | Signature des sessions (auto-généré dans `data/` sinon) |
-| `FAL_KEY`           | —           | Essayage virtuel réaliste (fal.ai IDM-VTON)             |
+| Variable                | Obligatoire | Rôle                                                            |
+| ----------------------- | ----------- | --------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`     | ✅          | Analyse des photos + génération des tenues (Claude)             |
+| `DATABASE_URL`          | ✅ (prod)   | Base Postgres (intégration Neon sur Vercel)                     |
+| `BLOB_READ_WRITE_TOKEN` | ✅ (prod)   | Stockage des images (Vercel Blob)                               |
+| `AUTH_SECRET`           | ✅ (prod)   | Signature des sessions — `openssl rand -hex 32`                 |
+| `FAL_KEY`               | —           | Essayage virtuel réaliste (fal.ai IDM-VTON)                     |
+
+## Déploiement sur Vercel
+
+1. **Base Postgres** : dans le projet Vercel → onglet *Storage* → *Create Database*
+   → **Neon (Postgres)**. Vercel injecte `DATABASE_URL` automatiquement. Le schéma
+   (`CREATE TABLE IF NOT EXISTS`) est créé tout seul au premier accès.
+2. **Stockage images** : *Storage* → *Create* → **Blob**. Vercel injecte
+   `BLOB_READ_WRITE_TOKEN`.
+3. **Variables** : ajoutez `ANTHROPIC_API_KEY` et `AUTH_SECRET` (généré via
+   `openssl rand -hex 32`) dans *Settings → Environment Variables*. `FAL_KEY` est
+   optionnelle.
+4. Redéployez. L'inscription, l'ajout de vêtements et les photos sont alors
+   persistés en base + Blob (le système de fichiers Vercel étant en lecture seule).
 
 ## Architecture
 
@@ -50,8 +65,9 @@ npm run dev                # http://localhost:3000
 - **IA** : `@anthropic-ai/sdk` — modèle `claude-opus-4-8`, vision + structured
   outputs (`zodOutputFormat`) pour des réponses JSON garanties valides.
 - **Météo** : Open-Meteo (géocodage + prévisions), gratuit et sans clé.
-- **Données** : stockage JSON local (`data/db.json`) + uploads (`data/uploads/`),
-  zéro dépendance native — facilement remplaçable par Postgres/Prisma en prod.
+- **Données** : **Vercel Postgres (Neon)** via `@neondatabase/serverless` —
+  la base est sérialisée en une ligne JSONB (facilement normalisable en tables).
+- **Images** : **Vercel Blob** (`@vercel/blob`) — URLs publiques servies par le CDN.
 - **Auth** : sessions signées HMAC (cookie httpOnly), mots de passe hashés scrypt.
 
 ```

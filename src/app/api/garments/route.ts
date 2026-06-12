@@ -7,7 +7,7 @@ import { CATEGORIES, type Category, type Garment } from "@/lib/types";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-  const garments = readDb()
+  const garments = (await readDb())
     .garments.filter((g) => g.userId === user.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return NextResponse.json({ garments });
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   }
 
   const { base64, mediaType } = parseDataUrl(body.photoDataUrl);
-  const photo = saveImage(base64, mediaType);
+  const photo = await saveImage(base64, mediaType);
 
   const garment: Garment = {
     id: newId(),
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     createdAt: new Date().toISOString(),
   };
 
-  mutateDb((db) => {
+  await mutateDb((db) => {
     db.garments.push(garment);
   });
 

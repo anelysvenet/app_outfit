@@ -16,10 +16,10 @@ export async function PATCH(req: Request) {
   let photo: string | undefined;
   if (body.photoDataUrl) {
     const { base64, mediaType } = parseDataUrl(body.photoDataUrl);
-    photo = saveImage(base64, mediaType);
+    photo = await saveImage(base64, mediaType);
   }
 
-  const updated = mutateDb((db) => {
+  const updated = await mutateDb((db) => {
     const u = db.users.find((x) => x.id === user.id);
     if (!u) return null;
     if (Array.isArray(body.styles)) u.styles = body.styles.slice(0, 10);

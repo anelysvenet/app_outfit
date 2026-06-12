@@ -1,6 +1,4 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import { cookies } from "next/headers";
 import { readDb } from "./db";
 import type { User } from "./types";
@@ -8,14 +6,12 @@ import type { User } from "./types";
 const SESSION_COOKIE = "aura_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 jours
 
+// En production (Vercel), AUTH_SECRET DOIT être défini : il garantit des
+// sessions valides et stables entre les instances serverless. Le repli n'est
+// qu'un dépannage de développement local.
 function getSecret(): string {
   if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
-  const file = path.join(process.cwd(), "data", "auth-secret");
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  if (fs.existsSync(file)) return fs.readFileSync(file, "utf-8").trim();
-  const secret = crypto.randomBytes(32).toString("hex");
-  fs.writeFileSync(file, secret);
-  return secret;
+  return "aura-dev-insecure-secret-set-AUTH_SECRET-in-production";
 }
 
 export function hashPassword(password: string): string {
@@ -80,7 +76,7 @@ export async function getCurrentUser(): Promise<User | null> {
   const store = await cookies();
   const userId = parseSessionToken(store.get(SESSION_COOKIE)?.value);
   if (!userId) return null;
-  const db = readDb();
+  const db = await readDb();
   return db.users.find((u) => u.id === userId) ?? null;
 }
 

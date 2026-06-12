@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     password?: string;
   };
 
-  const user = readDb().users.find(
+  const user = (await readDb()).users.find(
     (u) => u.email === (email ?? "").trim().toLowerCase(),
   );
   if (!user || !password || !verifyPassword(password, user.passwordHash)) {

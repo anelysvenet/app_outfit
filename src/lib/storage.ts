@@ -1,6 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
-import { UPLOADS_DIR, newId } from "./db";
+import { put } from "@vercel/blob";
+import { newId } from "./db";
 
 const MIME_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -15,15 +14,17 @@ export function isSupportedImage(mediaType: string): mediaType is ImageMediaType
   return mediaType in MIME_EXT;
 }
 
-/** Enregistre une image base64 et retourne l'URL servie par /api/files. */
-export function saveImage(base64: string, mediaType: string): string {
+/** Enregistre une image base64 sur Vercel Blob et retourne son URL publique. */
+export async function saveImage(base64: string, mediaType: string): Promise<string> {
   if (!isSupportedImage(mediaType)) {
     throw new Error(`Format d'image non supporté : ${mediaType}`);
   }
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  const filename = `${newId()}.${MIME_EXT[mediaType]}`;
-  fs.writeFileSync(path.join(UPLOADS_DIR, filename), Buffer.from(base64, "base64"));
-  return `/api/files/${filename}`;
+  const filename = `uploads/${newId()}.${MIME_EXT[mediaType]}`;
+  const { url } = await put(filename, Buffer.from(base64, "base64"), {
+    access: "public",
+    contentType: mediaType,
+  });
+  return url;
 }
 
 /** Extrait { base64, mediaType } d'une data URL `data:image/...;base64,...` */
@@ -33,15 +34,17 @@ export function parseDataUrl(dataUrl: string): { base64: string; mediaType: stri
   return { mediaType: match[1], base64: match[2] };
 }
 
-/** Relit une image uploadée (URL /api/files/xxx) en base64 pour l'API Claude. */
-export function readUpload(url: string): { base64: string; mediaType: string } | null {
-  const filename = url.split("/").pop();
-  if (!filename) return null;
-  const safe = path.basename(filename);
-  const file = path.join(UPLOADS_DIR, safe);
-  if (!fs.existsSync(file)) return null;
-  const ext = safe.split(".").pop() ?? "jpg";
-  const mediaType =
-    Object.entries(MIME_EXT).find(([, e]) => e === ext)?.[0] ?? "image/jpeg";
-  return { base64: fs.readFileSync(file).toString("base64"), mediaType };
+/** Relit une image stockée (URL Blob publique) en base64 pour l'API Claude / fal.ai. */
+export async function readUpload(
+  url: string,
+): Promise<{ base64: string; mediaType: string } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const mediaType = res.headers.get("content-type") ?? "image/jpeg";
+    const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
+    return { base64, mediaType };
+  } catch {
+    return null;
+  }
 }

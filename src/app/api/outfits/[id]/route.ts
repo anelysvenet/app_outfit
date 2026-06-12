@@ -11,7 +11,7 @@ export async function PATCH(
   const { id } = await params;
   const body = (await req.json()) as { rating?: number };
 
-  const updated = mutateDb((db) => {
+  const updated = await mutateDb((db) => {
     const o = db.outfits.find((x) => x.id === id && x.userId === user.id);
     if (!o) return null;
     if (typeof body.rating === "number") {
@@ -31,7 +31,7 @@ export async function DELETE(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
   const { id } = await params;
-  mutateDb((db) => {
+  await mutateDb((db) => {
     db.outfits = db.outfits.filter((o) => !(o.id === id && o.userId === user.id));
   });
   return NextResponse.json({ ok: true });

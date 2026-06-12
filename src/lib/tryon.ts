@@ -47,7 +47,7 @@ export async function generateTryOn(
 ): Promise<string | null> {
   if (!tryOnAvailable()) return null;
 
-  const person = readUpload(personPhotoUrl);
+  const person = await readUpload(personPhotoUrl);
   if (!person) throw new Error("Photo en pied introuvable");
 
   let current = toDataUrl(person);
@@ -65,10 +65,10 @@ export async function generateTryOn(
   }
 
   for (const step of steps) {
-    const garmentImg = readUpload(step.garment.photo);
+    const garmentImg = await readUpload(step.garment.photo);
     if (!garmentImg) continue;
     current = await falTryOn(current, toDataUrl(garmentImg), step.category);
-    // Si fal renvoie une URL distante, on la télécharge pour la persister localement
+    // Si fal renvoie une URL distante, on la télécharge pour la persister sur Blob
     if (current.startsWith("http")) {
       const res = await fetch(current);
       const buf = Buffer.from(await res.arrayBuffer());
@@ -80,5 +80,5 @@ export async function generateTryOn(
   if (!current.startsWith("data:")) return null;
   const match = /^data:([^;]+);base64,(.+)$/.exec(current);
   if (!match) return null;
-  return saveImage(match[2], match[1]);
+  return await saveImage(match[2], match[1]);
 }

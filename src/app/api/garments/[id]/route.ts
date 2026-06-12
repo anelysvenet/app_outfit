@@ -12,7 +12,7 @@ export async function PATCH(
   const { id } = await params;
   const body = (await req.json()) as Partial<Garment>;
 
-  const updated = mutateDb((db) => {
+  const updated = await mutateDb((db) => {
     const g = db.garments.find((x) => x.id === id && x.userId === user.id);
     if (!g) return null;
     if (body.name !== undefined) g.name = String(body.name).trim();
@@ -45,7 +45,7 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
   const { id } = await params;
 
-  mutateDb((db) => {
+  await mutateDb((db) => {
     db.garments = db.garments.filter((g) => !(g.id === id && g.userId === user.id));
   });
 
