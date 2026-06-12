@@ -19,6 +19,11 @@ export async function saveImage(base64: string, mediaType: string): Promise<stri
   if (!isSupportedImage(mediaType)) {
     throw new Error(`Format d'image non supporté : ${mediaType}`);
   }
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error(
+      "Stockage des images non configuré — créez un store Blob sur Vercel (Storage → Create → Blob) pour injecter BLOB_READ_WRITE_TOKEN.",
+    );
+  }
   const filename = `uploads/${newId()}.${MIME_EXT[mediaType]}`;
   const { url } = await put(filename, Buffer.from(base64, "base64"), {
     access: "public",

@@ -31,8 +31,13 @@ export async function POST(req: Request) {
 
   let photo: string | undefined;
   if (photoDataUrl) {
-    const { base64, mediaType } = parseDataUrl(photoDataUrl);
-    photo = await saveImage(base64, mediaType);
+    try {
+      const { base64, mediaType } = parseDataUrl(photoDataUrl);
+      photo = await saveImage(base64, mediaType);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Photo invalide";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
 
   const user: User = {

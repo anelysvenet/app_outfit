@@ -93,8 +93,11 @@ export default function GarmentForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ photoDataUrl: photo }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Analyse impossible");
+      // Le corps peut être vide ou non-JSON en cas d'erreur serveur (500/413…)
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? `Analyse impossible (erreur ${res.status})`);
+      }
       const a = data.analysis;
       setDraft((d) => ({
         ...d,
@@ -136,8 +139,10 @@ export default function GarmentForm({
           body: JSON.stringify(payload),
         },
       );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Enregistrement impossible");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? `Enregistrement impossible (erreur ${res.status})`);
+      }
       onSaved(data.garment);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Enregistrement impossible");
