@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     );
 
     const hasTopBottom =
-      wardrobe.some((g) => g.category === "haut") &&
+      wardrobe.some((g) => g.category === "haut" || g.category === "veste") &&
       wardrobe.some((g) => g.category === "bas");
     const hasDress = wardrobe.some((g) => g.category === "robe");
     const hasShoes = wardrobe.some((g) => g.category === "chaussures");

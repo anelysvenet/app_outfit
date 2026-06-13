@@ -123,9 +123,11 @@ function GeneratorContent() {
       },
       () => {
         setWeatherLoading(false);
-        setError("Géolocalisation refusée — ajoutez une ville manuellement.");
+        setError(
+          "Géolocalisation refusée par le navigateur — autorisez-la dans les paramètres, ou tapez votre ville manuellement.",
+        );
       },
-      { timeout: 10000 },
+      { timeout: 10000, enableHighAccuracy: false },
     );
   }
 
@@ -152,7 +154,7 @@ function GeneratorContent() {
   const wardrobeReady =
     garments.some((g) => g.category === "chaussures") &&
     (garments.some((g) => g.category === "robe") ||
-      (garments.some((g) => g.category === "haut") &&
+      (garments.some((g) => g.category === "haut" || g.category === "veste") &&
         garments.some((g) => g.category === "bas")));
 
   return (
@@ -168,10 +170,22 @@ function GeneratorContent() {
 
       {!wardrobeReady && garments.length >= 0 && (
         <div className="mt-6 rounded-2xl border border-gold/30 bg-sand/50 p-5 text-sm">
-          Pour générer une tenue, votre dressing doit contenir au minimum un
-          haut et un bas (ou une robe) ainsi qu&apos;une paire de chaussures.{" "}
-          <Link href="/dressing" className="text-gold underline underline-offset-4">
-            Compléter mon dressing
+          <p className="font-medium mb-1">Dressing incomplet pour générer une tenue.</p>
+          <ul className="list-disc list-inside space-y-0.5 text-smoke">
+            {!garments.some((g) => g.category === "chaussures") && (
+              <li>Ajoutez une paire de chaussures</li>
+            )}
+            {!garments.some((g) => g.category === "robe") &&
+              !garments.some((g) => g.category === "haut" || g.category === "veste") && (
+                <li>Ajoutez un haut, une veste ou une robe</li>
+            )}
+            {!garments.some((g) => g.category === "robe") &&
+              !garments.some((g) => g.category === "bas") && (
+                <li>Ajoutez un bas (pantalon, jupe…)</li>
+            )}
+          </ul>
+          <Link href="/dressing" className="mt-3 inline-block text-gold underline underline-offset-4">
+            Compléter mon dressing →
           </Link>
         </div>
       )}
