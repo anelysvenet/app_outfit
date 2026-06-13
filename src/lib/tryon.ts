@@ -1,12 +1,6 @@
 import { readUpload, saveImage } from "./storage";
 import type { Garment } from "./types";
 
-/**
- * Essayage virtuel réaliste via fal.ai (modèle IDM-VTON).
- * Applique séquentiellement le haut puis le bas sur la photo en pied de
- * l'utilisateur. Nécessite FAL_KEY ; sans clé, retourne null et le front
- * affiche le rendu "lookbook".
- */
 export function tryOnAvailable(): boolean {
   return Boolean(process.env.FAL_KEY);
 }
@@ -15,26 +9,26 @@ async function falTryOn(
   personDataUrl: string,
   garmentDataUrl: string,
   category: "upper_body" | "lower_body" | "dresses",
-): Promise<string> {
-  const res = await fetch("https://fal.run/fal-ai/idm-vton", {
-    method: "POST",
-    headers: {
-      Authorization: `Key ${process.env.FAL_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      human_image_url: personDataUrl,
-      garment_image_url: garmentDataUrl,
-      category,
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`Essayage virtuel indisponible (${res.status})`);
+): Promise<string | null> {
+  try {
+    const res = await fetch("https://fal.run/fal-ai/idm-vton", {
+      method: "POST",
+      headers: {
+        Authorization: `Key ${process.env.FAL_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        human_image_url: personDataUrl,
+        garment_image_url: garmentDataUrl,
+        category,
+      }),
+    });
+    if (!res.ok) return null; // 403 clé invalide, 429 quota, etc. → lookbook
+    const data = await res.json();
+    return data?.image?.url ?? data?.images?.[0]?.url ?? null;
+  } catch {
+    return null;
   }
-  const data = await res.json();
-  const url: string | undefined = data?.image?.url ?? data?.images?.[0]?.url;
-  if (!url) throw new Error("Essayage virtuel : réponse inattendue");
-  return url;
 }
 
 function toDataUrl(upload: { base64: string; mediaType: string }): string {
@@ -48,12 +42,12 @@ export async function generateTryOn(
   if (!tryOnAvailable()) return null;
 
   const person = await readUpload(personPhotoUrl);
-  if (!person) throw new Error("Photo en pied introuvable");
+  if (!person) return null;
 
   let current = toDataUrl(person);
 
   const dress = garments.find((g) => g.category === "robe");
-  const top = garments.find((g) => g.category === "haut");
+  const top = garments.find((g) => g.category === "haut" || g.category === "veste");
   const bottom = garments.find((g) => g.category === "bas");
 
   const steps: { garment: Garment; category: "upper_body" | "lower_body" | "dresses" }[] = [];
@@ -67,8 +61,9 @@ export async function generateTryOn(
   for (const step of steps) {
     const garmentImg = await readUpload(step.garment.photo);
     if (!garmentImg) continue;
-    current = await falTryOn(current, toDataUrl(garmentImg), step.category);
-    // Si fal renvoie une URL distante, on la télécharge pour la persister sur Blob
+    const result = await falTryOn(current, toDataUrl(garmentImg), step.category);
+    if (!result) return null; // fal.ai indisponible → lookbook
+    current = result;
     if (current.startsWith("http")) {
       const res = await fetch(current);
       const buf = Buffer.from(await res.arrayBuffer());

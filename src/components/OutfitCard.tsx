@@ -49,16 +49,16 @@ export default function OutfitCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ outfitId: outfit.id }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setTryOnMessage(data.error ?? "Essayage impossible");
       } else if (data.image) {
         setTryOnImage(data.image);
       } else {
-        // Pas de moteur d'essayage configuré → rendu lookbook local
+        // fal.ai absent ou indisponible → rendu lookbook élégant
         setShowLookbook(true);
         setTryOnMessage(
-          "Essayage réaliste non configuré (clé FAL_KEY absente) — voici votre lookbook.",
+          "Essayage réaliste indisponible — voici votre lookbook.",
         );
       }
     } catch {
