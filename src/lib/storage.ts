@@ -26,7 +26,7 @@ export async function saveImage(base64: string, mediaType: string): Promise<stri
   }
   const filename = `uploads/${newId()}.${MIME_EXT[mediaType]}`;
   const { url } = await put(filename, Buffer.from(base64, "base64"), {
-    access: "public",
+    access: "private",
     contentType: mediaType,
   });
   return url;
