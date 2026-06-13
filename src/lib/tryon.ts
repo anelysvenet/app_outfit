@@ -10,6 +10,7 @@ export function tryOnAvailable(): boolean {
 async function falTryOn(
   personUrl: string,
   garmentUrl: string,
+  restoreClothes = false,
 ): Promise<{ url: string } | { error: string }> {
   const res = await fetch("https://fal.run/fal-ai/fashn/tryon/v1.5", {
     method: "POST",
@@ -22,6 +23,8 @@ async function falTryOn(
       garment_image: garmentUrl,
       garment_photo_type: "auto",
       quality_mode: "quality",
+      // Préserve les vêtements déjà appliqués lors des passes successives
+      restore_clothes: restoreClothes,
       seed: 42,
     }),
   });
@@ -57,36 +60,51 @@ export async function generateTryOn(
   const hat = garments.find((g) => g.category === "chapeau");
   const scarf = garments.find((g) => g.category === "foulard");
 
-  // FASHN détecte automatiquement le type de vêtement — pas besoin de catégorie.
-  // Ordre : vêtements d'abord, accessoires ensuite.
-  const steps: string[] = [];
+  // Ordre : vêtements (critiques) puis accessoires (optionnels).
+  // restoreClothes=true à partir de la 2e passe pour éviter la dérive de couleur.
+  type Step = { url: string; optional: boolean };
+  const steps: Step[] = [];
   if (dress) {
-    steps.push(dress.photo);
+    steps.push({ url: dress.photo, optional: false });
   } else {
-    if (top) steps.push(top.photo);
-    if (bottom) steps.push(bottom.photo);
+    if (top) steps.push({ url: top.photo, optional: false });
+    if (bottom) steps.push({ url: bottom.photo, optional: false });
   }
-  if (belt) steps.push(belt.photo);
-  if (scarf) steps.push(scarf.photo);
-  if (hat) steps.push(hat.photo);
-  if (bag) steps.push(bag.photo);
+  if (belt)  steps.push({ url: belt.photo,  optional: true });
+  if (scarf) steps.push({ url: scarf.photo, optional: true });
+  if (hat)   steps.push({ url: hat.photo,   optional: true });
+  if (bag)   steps.push({ url: bag.photo,   optional: true });
 
   if (steps.length === 0) return null;
 
   let currentPersonUrl = personPhotoUrl;
 
-  for (const garmentUrl of steps) {
-    const result = await falTryOn(currentPersonUrl, garmentUrl);
-    if ("error" in result) return { error: result.error };
+  for (let i = 0; i < steps.length; i++) {
+    const { url: garmentUrl, optional } = steps[i];
+    // À partir de la 2e passe, demander à FASHN de préserver les vêtements déjà appliqués
+    const result = await falTryOn(currentPersonUrl, garmentUrl, i > 0);
+
+    if ("error" in result) {
+      if (optional) {
+        // Accessoire échoué → on garde le résultat actuel et on continue
+        console.warn("[fashn] optional step skipped:", result.error);
+        continue;
+      }
+      return { error: result.error };
+    }
 
     // Persiste le résultat sur Vercel Blob pour l'étape suivante.
     try {
       const res = await fetch(result.url);
-      if (!res.ok) return { error: `download failed: ${res.status}` };
+      if (!res.ok) {
+        if (optional) { continue; }
+        return { error: `download failed: ${res.status}` };
+      }
       const buf = Buffer.from(await res.arrayBuffer());
       const mediaType = res.headers.get("content-type") ?? "image/png";
       currentPersonUrl = await saveImage(buf.toString("base64"), mediaType);
     } catch (e) {
+      if (optional) { continue; }
       return { error: e instanceof Error ? e.message : "download error" };
     }
   }
