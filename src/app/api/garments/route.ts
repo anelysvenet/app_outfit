@@ -5,19 +5,24 @@ import { parseDataUrl, saveImage } from "@/lib/storage";
 import { CATEGORIES, type Category, type Garment } from "@/lib/types";
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-  const garments = (await readDb())
-    .garments.filter((g) => g.userId === user.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return NextResponse.json({ garments });
+  try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
+    const garments = (await readDb())
+      .garments.filter((g) => g.userId === user.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return NextResponse.json({ garments });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Erreur serveur";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
+
     const body = (await req.json()) as Partial<Garment> & { photoDataUrl?: string };
     if (!body.photoDataUrl) {
       return NextResponse.json({ error: "Photo requise" }, { status: 400 });

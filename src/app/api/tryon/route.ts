@@ -6,21 +6,21 @@ import { generateTryOn, tryOnAvailable } from "@/lib/tryon";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-
-  if (!user.photo) {
-    return NextResponse.json(
-      { error: "Ajoutez d'abord une photo en pied dans votre profil." },
-      { status: 400 },
-    );
-  }
-
-  if (!tryOnAvailable()) {
-    return NextResponse.json({ available: false, image: null });
-  }
-
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
+
+    if (!user.photo) {
+      return NextResponse.json(
+        { error: "Ajoutez d'abord une photo en pied dans votre profil." },
+        { status: 400 },
+      );
+    }
+
+    if (!tryOnAvailable()) {
+      return NextResponse.json({ available: false, image: null });
+    }
+
     const { outfitId } = (await req.json()) as { outfitId?: string };
     const db = await readDb();
     const outfit = db.outfits.find((o) => o.id === outfitId && o.userId === user.id);

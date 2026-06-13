@@ -6,10 +6,10 @@ import { parseDataUrl } from "@/lib/storage";
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
+
     const { photoDataUrl } = (await req.json()) as { photoDataUrl?: string };
     if (!photoDataUrl) {
       return NextResponse.json({ error: "Photo requise" }, { status: 400 });

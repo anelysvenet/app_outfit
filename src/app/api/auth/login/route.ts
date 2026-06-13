@@ -3,21 +3,26 @@ import { readDb } from "@/lib/db";
 import { sanitizeUser, setSessionCookie, verifyPassword } from "@/lib/auth";
 
 export async function POST(req: Request) {
-  const { email, password } = (await req.json()) as {
-    email?: string;
-    password?: string;
-  };
+  try {
+    const { email, password } = (await req.json()) as {
+      email?: string;
+      password?: string;
+    };
 
-  const user = (await readDb()).users.find(
-    (u) => u.email === (email ?? "").trim().toLowerCase(),
-  );
-  if (!user || !password || !verifyPassword(password, user.passwordHash)) {
-    return NextResponse.json(
-      { error: "Email ou mot de passe incorrect." },
-      { status: 401 },
+    const user = (await readDb()).users.find(
+      (u) => u.email === (email ?? "").trim().toLowerCase(),
     );
-  }
+    if (!user || !password || !verifyPassword(password, user.passwordHash)) {
+      return NextResponse.json(
+        { error: "Email ou mot de passe incorrect." },
+        { status: 401 },
+      );
+    }
 
-  await setSessionCookie(user.id);
-  return NextResponse.json({ user: sanitizeUser(user) });
+    await setSessionCookie(user.id);
+    return NextResponse.json({ user: sanitizeUser(user) });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Connexion impossible";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -3,16 +3,16 @@ import { getCurrentUser } from "@/lib/auth";
 import { fetchWeather, reverseCity, searchCity } from "@/lib/weather";
 
 export async function GET(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-
-  const url = new URL(req.url);
-  const lat = url.searchParams.get("lat");
-  const lon = url.searchParams.get("lon");
-  const city = url.searchParams.get("city");
-  const search = url.searchParams.get("search");
-
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
+
+    const url = new URL(req.url);
+    const lat = url.searchParams.get("lat");
+    const lon = url.searchParams.get("lon");
+    const city = url.searchParams.get("city");
+    const search = url.searchParams.get("search");
+
     if (search) {
       const results = await searchCity(search);
       return NextResponse.json({ results });
