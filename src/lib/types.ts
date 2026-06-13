@@ -20,6 +20,12 @@ export const CATEGORIES = [
   "veste",
   "chaussures",
   "sac",
+  "sacoche",
+  "ceinture",
+  "chapeau",
+  "bijoux",
+  "lunettes",
+  "foulard",
   "accessoire",
 ] as const;
 
@@ -31,8 +37,14 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   robe: "Robe",
   veste: "Veste / Manteau",
   chaussures: "Chaussures",
-  sac: "Sac",
-  accessoire: "Accessoire",
+  sac: "Sac à main",
+  sacoche: "Sacoche",
+  ceinture: "Ceinture",
+  chapeau: "Chapeau / Casquette",
+  bijoux: "Bijoux & Montre",
+  lunettes: "Lunettes de soleil",
+  foulard: "Foulard / Écharpe",
+  accessoire: "Autre accessoire",
 };
 
 export const CUTS = [
