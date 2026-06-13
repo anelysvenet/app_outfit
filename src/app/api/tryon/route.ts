@@ -31,14 +31,27 @@ export async function POST(req: Request) {
       .map((it) => db.garments.find((g) => g.id === it.garmentId))
       .filter((g): g is NonNullable<typeof g> => Boolean(g));
 
-    const image = await generateTryOn(user.photo, garments);
-    if (image) {
-      await mutateDb((d) => {
-        const o = d.outfits.find((x) => x.id === outfit.id);
-        if (o) o.tryOnImage = image;
-      });
+    const result = await generateTryOn(user.photo, garments);
+
+    // null = no garments matched (lookbook fallback)
+    if (result === null) {
+      return NextResponse.json({ available: true, image: null });
     }
-    return NextResponse.json({ available: true, image });
+
+    // fal.ai returned an error — surface it to the client
+    if ("error" in result) {
+      return NextResponse.json(
+        { error: `Essayage fal.ai : ${result.error}` },
+        { status: 502 },
+      );
+    }
+
+    // success
+    await mutateDb((d) => {
+      const o = d.outfits.find((x) => x.id === outfit.id);
+      if (o) o.tryOnImage = result.image;
+    });
+    return NextResponse.json({ available: true, image: result.image });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Essayage impossible";
     return NextResponse.json({ error: message }, { status: 500 });
