@@ -51,8 +51,14 @@ export async function generateTryOn(
   const dress = garments.find((g) => g.category === "robe");
   const top = garments.find((g) => g.category === "haut" || g.category === "veste");
   const bottom = garments.find((g) => g.category === "bas");
+  // Accessoires portables que FASHN peut composer sur la silhouette
+  const bag = garments.find((g) => g.category === "sac" || g.category === "sacoche");
+  const belt = garments.find((g) => g.category === "ceinture");
+  const hat = garments.find((g) => g.category === "chapeau");
+  const scarf = garments.find((g) => g.category === "foulard");
 
   // FASHN détecte automatiquement le type de vêtement — pas besoin de catégorie.
+  // Ordre : vêtements d'abord, accessoires ensuite.
   const steps: string[] = [];
   if (dress) {
     steps.push(dress.photo);
@@ -60,6 +66,10 @@ export async function generateTryOn(
     if (top) steps.push(top.photo);
     if (bottom) steps.push(bottom.photo);
   }
+  if (belt) steps.push(belt.photo);
+  if (scarf) steps.push(scarf.photo);
+  if (hat) steps.push(hat.photo);
+  if (bag) steps.push(bag.photo);
 
   if (steps.length === 0) return null;
 
