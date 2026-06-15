@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import type { Garment } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
 
-const stagger = {
+const stagger: Variants = {
   hidden: { opacity: 0, y: 18 },
   visible: (i: number) => ({
     opacity: 1,
