@@ -41,7 +41,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-md">
         <Link href="/" className="font-display text-3xl">
-          AURA<span className="text-gold">.</span>
+          Fitme<span className="text-gold">.</span>
         </Link>
         <h1 className="font-display mt-8 text-3xl">Bon retour.</h1>
         <p className="mt-2 text-sm text-smoke">

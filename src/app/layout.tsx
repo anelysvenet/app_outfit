@@ -14,7 +14,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "AURA — Votre styliste personnel",
+  title: "Fitme — Votre styliste personnel",
   description:
     "Importez votre garde-robe, laissez l'IA composer des tenues adaptées à la météo, à l'occasion et à votre style.",
 };

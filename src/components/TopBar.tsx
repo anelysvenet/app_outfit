@@ -12,7 +12,7 @@ export default function TopBar({ userName }: { userName: string }) {
     <header className="sticky top-0 z-40 border-b border-ink/5 bg-ivory/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
         <Link href="/accueil" className="font-display text-2xl tracking-wide">
-          AURA<span className="text-gold">.</span>
+          Fitme<span className="text-gold">.</span>
         </Link>
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-smoke sm:block">{userName}</span>

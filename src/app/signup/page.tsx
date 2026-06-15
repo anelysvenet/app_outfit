@@ -59,7 +59,7 @@ export default function SignupPage() {
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="w-full max-w-xl">
         <Link href="/" className="font-display text-3xl">
-          AURA<span className="text-gold">.</span>
+          Fitme<span className="text-gold">.</span>
         </Link>
 
         <div className="mt-8 flex gap-2">

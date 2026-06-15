@@ -19,7 +19,7 @@ export default async function LandingPage() {
         Votre garde-robe, <em className="text-gold">sublimée</em> chaque matin.
       </h1>
       <p className="mt-6 max-w-xl text-smoke leading-relaxed">
-        Photographiez vos vêtements, AURA les analyse et compose des tenues
+        Photographiez vos vêtements, Fitme les analyse et compose des tenues
         complètes — adaptées à la météo du jour, à l&apos;occasion et à votre
         style. Jusqu&apos;à l&apos;essayage virtuel sur votre propre photo.
       </p>
