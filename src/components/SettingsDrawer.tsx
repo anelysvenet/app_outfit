@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface Settings {
@@ -36,6 +36,105 @@ const CURRENCIES = [
   { code: "CAD", symbol: "CA$", label: "Dollar canadien" },
   { code: "MAD", symbol: "د.م.", label: "Dirham marocain" },
 ];
+
+function ElegantSelect({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: { value: string; label: string; sub?: string }[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = options.find((o) => o.value === value) ?? options[0];
+
+  useEffect(() => {
+    function onMouse(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onMouse);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onMouse);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-3 rounded-full border border-ink/10 bg-white/80 px-5 py-3 text-left shadow-card backdrop-blur transition hover:border-gold/50 hover:shadow-lift"
+      >
+        <span className="flex items-baseline gap-2">
+          <span className="text-sm font-medium text-ink">{current?.label}</span>
+          {current?.sub && <span className="text-xs text-smoke">{current.sub}</span>}
+        </span>
+        <motion.svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          className="h-4 w-4 shrink-0 text-smoke"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </motion.svg>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            style={{ transformOrigin: "top" }}
+            className="absolute left-0 top-[calc(100%+0.4rem)] z-40 max-h-64 w-full overflow-y-auto rounded-3xl border border-ink/5 bg-ivory/98 p-2 shadow-lift backdrop-blur-xl"
+          >
+            {options.map((o) => {
+              const active = o.value === value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => { onChange(o.value); setOpen(false); }}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-4 py-2.5 text-left text-sm transition ${
+                    active ? "bg-ink text-ivory" : "text-ink hover:bg-sand"
+                  }`}
+                >
+                  <motion.span
+                    initial={false}
+                    animate={{ scale: active ? 1 : 0, opacity: active ? 1 : 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 26 }}
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-champagne"
+                  />
+                  <span className="flex items-baseline gap-2">
+                    <span>{o.label}</span>
+                    {o.sub && (
+                      <span className={`text-xs ${active ? "text-champagne" : "text-smoke"}`}>
+                        {o.sub}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function Section({
   title,
@@ -206,8 +305,6 @@ export default function SettingsDrawer({
     setTimeout(() => setLangSaved(false), 2000);
   }
 
-  const selectCls =
-    "field !py-2.5 appearance-none cursor-pointer";
   const inputCls = "field !py-2.5";
   const btnSm =
     "rounded-full bg-ink px-5 py-2 text-sm font-medium text-ivory transition hover:bg-night disabled:opacity-40 cursor-pointer";
@@ -328,25 +425,25 @@ export default function SettingsDrawer({
           {/* LANGUE */}
           <Section title="Langue & région" open={open === "lang"} onToggle={() => toggle("lang")}>
             <Field label="Langue">
-              <select className={selectCls} value={language} onChange={(e) => setLanguage(e.target.value)}>
-                {LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>{l.label}</option>
-                ))}
-              </select>
+              <ElegantSelect
+                value={language}
+                options={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
+                onChange={setLanguage}
+              />
             </Field>
             <Field label="Pays">
-              <select className={selectCls} value={country} onChange={(e) => setCountry(e.target.value)}>
-                {COUNTRIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <ElegantSelect
+                value={country}
+                options={COUNTRIES.map((c) => ({ value: c, label: c }))}
+                onChange={setCountry}
+              />
             </Field>
             <Field label="Devise">
-              <select className={selectCls} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                {CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code}>{c.symbol} — {c.label}</option>
-                ))}
-              </select>
+              <ElegantSelect
+                value={currency}
+                options={CURRENCIES.map((c) => ({ value: c.code, label: c.label, sub: c.symbol }))}
+                onChange={setCurrency}
+              />
             </Field>
             <button className={btnSm} onClick={saveLanguage}>
               {langSaved ? "✓ Enregistré" : "Enregistrer"}
