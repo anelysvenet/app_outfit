@@ -11,8 +11,8 @@
   --color-night: #14110e;
   --color-champagne: #d8c39a;
 
-  --font-display: var(--font-playfair), "Didot", "Bodoni MT", Georgia, serif;
-  --font-body: var(--font-playfair), "Didot", "Bodoni MT", Georgia, serif;
+  --font-display: var(--font-cormorant), "Garamond", Georgia, serif;
+  --font-body: var(--font-cormorant), "Garamond", Georgia, serif;
 
   --shadow-card: 0 2px 24px rgba(28, 24, 20, 0.07);
   --shadow-lift: 0 16px 48px rgba(28, 24, 20, 0.14);
