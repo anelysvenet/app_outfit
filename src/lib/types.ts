@@ -77,8 +77,13 @@ export interface User {
   passwordHash: string;
   name: string;
   styles: string[];
-  photo?: string; // photo en pied pour l'essayage virtuel
+  photo?: string;
   cities: string[];
+  language?: string;
+  country?: string;
+  currency?: string;
+  subscription?: "free" | "premium";
+  promoCode?: string;
   createdAt: string;
 }
 

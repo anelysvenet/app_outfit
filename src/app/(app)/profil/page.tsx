@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import PhotoInput from "@/components/PhotoInput";
 import { STYLES } from "@/lib/types";
+import { SettingsIcon } from "@/components/icons";
+import SettingsDrawer from "@/components/SettingsDrawer";
 
 interface Me {
   name: string;
@@ -10,6 +13,11 @@ interface Me {
   styles: string[];
   cities: string[];
   photo?: string;
+  language?: string;
+  country?: string;
+  currency?: string;
+  subscription?: string;
+  promoCode?: string;
 }
 
 export default function ProfilePage() {
@@ -20,6 +28,7 @@ export default function ProfilePage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -55,12 +64,24 @@ export default function ProfilePage() {
   if (!me) return <p className="text-smoke">Chargement…</p>;
 
   return (
+    <>
     <div className="max-w-3xl">
-      <p className="text-xs uppercase tracking-[0.3em] text-gold">Préférences</p>
-      <h1 className="font-display mt-1 text-4xl">Profil</h1>
-      <p className="mt-2 text-sm text-smoke">
-        {me.name} · {me.email}
-      </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-gold">Préférences</p>
+          <h1 className="font-display mt-1 text-4xl">Profil</h1>
+          <p className="mt-2 text-sm text-smoke">
+            {me.name} · {me.email}
+          </p>
+        </div>
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="mt-1 flex h-10 w-10 items-center justify-center rounded-full text-smoke hover:bg-sand transition cursor-pointer"
+          aria-label="Paramètres"
+        >
+          <SettingsIcon className="h-5 w-5" />
+        </button>
+      </div>
 
       <div className="mt-10 grid gap-10 sm:grid-cols-[220px_1fr]">
         <div>
@@ -143,5 +164,22 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
+
+    <AnimatePresence>
+      {settingsOpen && (
+        <SettingsDrawer
+          settings={{
+            email: me.email,
+            language: me.language ?? "fr",
+            country: me.country ?? "France",
+            currency: me.currency ?? "EUR",
+            subscription: me.subscription ?? "free",
+            promoCode: me.promoCode ?? "",
+          }}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+    </AnimatePresence>
+    </>
   );
 }

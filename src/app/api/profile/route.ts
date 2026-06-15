@@ -12,6 +12,10 @@ export async function PATCH(req: Request) {
       styles?: string[];
       cities?: string[];
       photoDataUrl?: string;
+      language?: string;
+      country?: string;
+      currency?: string;
+      promoCode?: string;
     };
 
     let photo: string | undefined;
@@ -26,6 +30,10 @@ export async function PATCH(req: Request) {
       if (Array.isArray(body.styles)) u.styles = body.styles.slice(0, 10);
       if (Array.isArray(body.cities)) u.cities = body.cities.slice(0, 10);
       if (photo) u.photo = photo;
+      if (body.language) u.language = body.language;
+      if (body.country) u.country = body.country;
+      if (body.currency) u.currency = body.currency;
+      if (body.promoCode !== undefined) u.promoCode = body.promoCode;
       return u;
     });
 
