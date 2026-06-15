@@ -53,22 +53,35 @@ export default function DressingPage() {
         </button>
       </div>
 
-      <div className="mt-8 flex flex-wrap gap-2">
-        <button
-          onClick={() => setFilter("tous")}
-          className={`chip ${filter === "tous" ? "chip-active" : ""}`}
-        >
-          Tous
-        </button>
-        {CATEGORIES.map((c) => (
-          <button
-            key={c}
-            onClick={() => setFilter(c)}
-            className={`chip ${filter === c ? "chip-active" : ""}`}
+      <div className="mt-8">
+        <label className="relative inline-flex w-full max-w-xs items-center">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as Category | "tous")}
+            className="w-full cursor-pointer appearance-none rounded-full border border-ink/15 bg-white px-5 py-2.5 pr-11 text-sm font-medium text-ink transition hover:border-gold focus:border-gold focus:ring-2 focus:ring-gold/20"
           >
-            {CATEGORY_LABELS[c]}
-          </button>
-        ))}
+            <option value="tous">Toutes les catégories ({garments.length})</option>
+            {CATEGORIES.map((c) => {
+              const count = garments.filter((g) => g.category === c).length;
+              return (
+                <option key={c} value={c} disabled={count === 0}>
+                  {CATEGORY_LABELS[c]} ({count})
+                </option>
+              );
+            })}
+          </select>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="pointer-events-none absolute right-4 h-4 w-4 text-smoke"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </label>
       </div>
 
       {loading ? (
