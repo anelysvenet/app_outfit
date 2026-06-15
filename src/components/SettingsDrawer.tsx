@@ -99,7 +99,7 @@ function ElegantSelect({
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
             style={{ transformOrigin: "top" }}
-            className="absolute left-0 top-[calc(100%+0.4rem)] z-40 max-h-64 w-full overflow-y-auto rounded-3xl border border-ink/5 bg-ivory/98 p-2 shadow-lift backdrop-blur-xl"
+            className="absolute left-0 top-[calc(100%+0.4rem)] z-40 max-h-64 w-full overflow-y-auto rounded-3xl border border-ink/5 bg-[#d8cbb4] p-2 shadow-lift backdrop-blur-xl"
           >
             {options.map((o) => {
               const active = o.value === value;
@@ -333,10 +333,10 @@ export default function SettingsDrawer({
         exit={{ y: "100%", opacity: 0 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 w-full max-h-[90svh] sm:max-h-[100svh] sm:h-full sm:w-96 overflow-y-auto rounded-t-3xl sm:rounded-none sm:rounded-l-3xl bg-ivory shadow-lift"
+        className="relative z-10 w-full max-h-[90svh] sm:max-h-[100svh] sm:h-full sm:w-96 overflow-y-auto rounded-t-3xl sm:rounded-none sm:rounded-l-3xl bg-[#dfd3be] shadow-lift"
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink/8 bg-ivory/95 px-6 py-4 backdrop-blur">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink/8 bg-[#dfd3be]/95 px-6 py-4 backdrop-blur">
           <h2 className="text-lg font-semibold">Paramètres</h2>
           <button
             onClick={onClose}
