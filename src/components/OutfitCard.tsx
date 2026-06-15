@@ -170,21 +170,27 @@ export default function OutfitCard({
         )}
 
         {/* Actions */}
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-current/10 pt-5">
-          <div>
-            <p className={`mb-1 text-xs ${outfit.evening ? "text-ivory/50" : "text-smoke"}`}>
-              Notez cette tenue pour affiner vos recommandations
-            </p>
-            <Stars value={rating} onChange={rate} />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={tryOn}
-              disabled={tryOnLoading}
-              className={outfit.evening ? "btn-ghost border-ivory/30 text-ivory hover:border-champagne hover:text-champagne" : "btn-ghost"}
-            >
-              {tryOnLoading ? "Génération…" : "Essayage virtuel"}
-            </button>
+        <div className="mt-6 space-y-4 border-t border-current/10 pt-5">
+          {/* Essayage virtuel — toujours visible */}
+          <button
+            onClick={tryOn}
+            disabled={tryOnLoading}
+            className={`w-full rounded-full py-3 text-sm font-medium tracking-wide transition disabled:opacity-40 cursor-pointer ${
+              outfit.evening
+                ? "bg-champagne/15 border border-champagne/60 text-champagne hover:bg-champagne/25"
+                : "bg-ink text-ivory hover:bg-night"
+            }`}
+          >
+            {tryOnLoading ? "Génération en cours…" : "✦ Essayage virtuel"}
+          </button>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className={`mb-1 text-xs ${outfit.evening ? "text-ivory/50" : "text-smoke"}`}>
+                Notez cette tenue pour affiner vos recommandations
+              </p>
+              <Stars value={rating} onChange={rate} />
+            </div>
             {onDeleted && (
               <button
                 onClick={async () => {
