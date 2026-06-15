@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import Nav from "@/components/Nav";
+import TopBar from "@/components/TopBar";
+import BottomNav from "@/components/BottomNav";
 import { getCurrentUser } from "@/lib/auth";
 
 export default async function AppLayout({
@@ -12,8 +13,9 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen">
-      <Nav userName={user.name} />
-      <main className="mx-auto max-w-6xl px-5 py-10">{children}</main>
+      <TopBar userName={user.name} />
+      <main className="mx-auto max-w-5xl px-5 pt-6 pb-28">{children}</main>
+      <BottomNav />
     </div>
   );
 }

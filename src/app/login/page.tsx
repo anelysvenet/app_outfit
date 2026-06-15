@@ -22,7 +22,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
-        router.push("/dressing");
+        router.push("/accueil");
         return;
       }
       const message = await res
