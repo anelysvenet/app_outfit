@@ -168,11 +168,12 @@ function SelectedCard({
   onDelete: (g: Garment) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const menuRef = cardRef; // close on click outside the card
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
     }
@@ -182,6 +183,7 @@ function SelectedCard({
 
   return (
     <motion.div
+      ref={cardRef}
       custom={index}
       variants={stagger}
       initial="hidden"
@@ -206,45 +208,47 @@ function SelectedCard({
         <p className="text-sm leading-tight text-ivory">{garment.name}</p>
       </div>
 
-      {/* ✕ button + dropdown menu */}
-      <div ref={menuRef} className="absolute right-2.5 top-2.5 z-10">
-        <button
-          onClick={() => setMenuOpen((o) => !o)}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-night/70 text-xs text-ivory/80 backdrop-blur-sm transition hover:bg-night hover:text-ivory cursor-pointer"
-          aria-label="Options"
-        >
-          ✕
-        </button>
+      {/* ✕ button */}
+      <button
+        onClick={() => setMenuOpen((o) => !o)}
+        className="absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-night/70 text-xs text-ivory/80 backdrop-blur-sm transition hover:bg-night hover:text-ivory cursor-pointer"
+        aria-label="Options"
+      >
+        ✕
+      </button>
 
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: -4 }}
-              transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-              style={{ transformOrigin: "top right" }}
-              className="absolute right-0 top-9 w-56 overflow-hidden rounded-2xl border border-ivory/10 bg-night/95 shadow-lift backdrop-blur-xl"
-            >
+      {/* Centered overlay menu */}
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            ref={menuRef}
+            initial={{ opacity: 0, scale: 0.88 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.88 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0 z-20 flex items-center justify-center p-3"
+            style={{ background: "rgba(196,168,136,0.18)", backdropFilter: "blur(2px)" }}
+          >
+            <div className="w-full overflow-hidden rounded-2xl shadow-lift" style={{ background: "#DDB8A8" }}>
               <button
                 onClick={() => { onToggle(garment); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm text-ivory/75 transition hover:bg-ivory/8 hover:text-champagne cursor-pointer"
+                className="flex w-full items-center gap-2 px-4 py-3.5 text-left text-sm text-ink/80 transition hover:bg-black/8 cursor-pointer"
               >
-                <span className="text-champagne/50 text-xs">✦</span>
-                Supprimer de l&apos;album soirée
+                <span className="text-[10px] text-ink/40">✦</span>
+                Retirer de l&apos;album soirée
               </button>
-              <div className="h-px bg-ivory/8" />
+              <div className="h-px bg-ink/10" />
               <button
                 onClick={() => { onDelete(garment); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm text-terracotta/80 transition hover:bg-terracotta/10 hover:text-terracotta cursor-pointer"
+                className="flex w-full items-center gap-2 px-4 py-3.5 text-left text-sm font-medium text-terracotta transition hover:bg-terracotta/10 cursor-pointer"
               >
                 <span className="text-xs">✕</span>
                 Supprimer l&apos;article
               </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
