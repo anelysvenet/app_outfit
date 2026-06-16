@@ -229,7 +229,11 @@ function SelectedCard({
             className="absolute inset-0 z-20 flex items-center justify-center p-3"
             style={{ background: "rgba(196,168,136,0.18)", backdropFilter: "blur(2px)" }}
           >
-            <div className="w-full overflow-hidden rounded-2xl shadow-lift" style={{ background: "#DDB8A8" }}>
+            <div className="w-full overflow-hidden rounded-2xl" style={{
+              background: "#e8d8c4",
+              border: "1.5px solid #d8c39a",
+              boxShadow: "0 0 16px rgba(216,195,154,0.7), 0 0 40px rgba(216,195,154,0.35), inset 0 0 12px rgba(216,195,154,0.1)"
+            }}>
               <button
                 onClick={() => { onToggle(garment); setMenuOpen(false); }}
                 className="flex w-full items-center gap-2 px-4 py-3.5 text-left text-sm text-ink/80 transition hover:bg-black/8 cursor-pointer"
