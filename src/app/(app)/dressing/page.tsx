@@ -7,7 +7,6 @@ import GarmentForm from "@/components/GarmentForm";
 import CategorySelect from "@/components/CategorySelect";
 import {
   CATEGORIES,
-  CATEGORY_LABELS,
   type Category,
   type Garment,
 } from "@/lib/types";
@@ -65,7 +64,7 @@ export default function DressingPage() {
             { value: "tous", label: t("dressing.all_categories"), count: garments.length },
             ...CATEGORIES.map((c) => ({
               value: c,
-              label: CATEGORY_LABELS[c],
+              label: t(`cat.${c}`),
               count: garments.filter((g) => g.category === c).length,
             })),
           ]}
@@ -123,7 +122,7 @@ export default function DressingPage() {
                 </div>
                 <div className="p-4">
                   <p className="text-xs uppercase tracking-[0.15em] text-gold">
-                    {CATEGORY_LABELS[g.category]}
+                    {t(`cat.${g.category}`)}
                     {g.cut ? ` · ${g.cut}` : ""}
                   </p>
                   <p className="mt-1 font-medium leading-snug">{g.name}</p>

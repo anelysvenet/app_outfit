@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import type { Garment } from "@/lib/types";
-import { CATEGORY_LABELS } from "@/lib/types";
 import { useT } from "@/contexts/LanguageContext";
 
 const stagger: Variants = {
@@ -205,7 +204,7 @@ function SelectedCard({
       {/* Info */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-night via-night/75 to-transparent p-3 pt-10">
         <p className="text-[9px] uppercase tracking-widest text-champagne/60">
-          {CATEGORY_LABELS[garment.category]}
+          {t(`cat.${garment.category}`)}
         </p>
         <p className="text-sm leading-tight text-ivory">{garment.name}</p>
       </div>
@@ -264,6 +263,7 @@ function GarmentTile({
 }: {
   garment: Garment; index: number; onToggle: (g: Garment) => void;
 }) {
+  const t = useT();
   return (
     <motion.button
       custom={index}
@@ -285,7 +285,7 @@ function GarmentTile({
 
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-night/90 to-transparent p-3 pt-8">
         <p className="text-[9px] uppercase tracking-widest text-ivory/40">
-          {CATEGORY_LABELS[garment.category]}
+          {t(`cat.${garment.category}`)}
         </p>
         <p className="text-sm leading-tight text-ivory/75">{garment.name}</p>
       </div>
