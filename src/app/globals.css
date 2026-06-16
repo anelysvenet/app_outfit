@@ -11,9 +11,6 @@
   --color-night: #14110e;
   --color-champagne: #d8c39a;
 
-  --font-display: var(--font-cormorant), "Garamond", Georgia, serif;
-  --font-body: var(--font-cormorant), "Garamond", Georgia, serif;
-
   --shadow-card: 0 2px 24px rgba(28, 24, 20, 0.07);
   --shadow-lift: 0 16px 48px rgba(28, 24, 20, 0.14);
 }
@@ -25,7 +22,8 @@ html {
 body {
   background-color: var(--color-ivory);
   color: var(--color-ink);
-  font-family: var(--font-body);
+  /* --font-cormorant est défini sur body par Next.js, on le référence directement */
+  font-family: var(--font-cormorant), "Garamond", Georgia, serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -33,7 +31,14 @@ h1,
 h2,
 h3,
 .font-display {
-  font-family: var(--font-display);
+  font-family: var(--font-cormorant), "Garamond", Georgia, serif;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: var(--font-cormorant), "Garamond", Georgia, serif;
 }
 
 ::selection {
