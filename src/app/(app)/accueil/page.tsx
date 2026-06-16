@@ -6,18 +6,12 @@ import { motion } from "framer-motion";
 import { SparklesIcon, DiscoIcon, HangerIcon } from "@/components/icons";
 import type { Garment, Outfit } from "@/lib/types";
 
-interface Me {
-  name: string;
-  photo?: string;
-}
+interface Me { name: string; photo?: string }
 
-const container = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
-};
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.09 } } };
 const item = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { type: "spring" as const, damping: 24, stiffness: 200 } },
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: "spring" as const, damping: 26, stiffness: 220 } },
 };
 
 export default function HomePage() {
@@ -34,85 +28,100 @@ export default function HomePage() {
   const firstName = me?.name?.split(" ")[0] ?? "";
   const rated = outfits.filter((o) => typeof o.rating === "number").length;
 
-  const stats = [
-    { label: "Pièces", value: garments.length, href: "/dressing" },
-    { label: "Tenues", value: outfits.length, href: "/tenues" },
-    { label: "Notées", value: rated, href: "/tenues" },
-  ];
-
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="pb-4">
+    <motion.div variants={container} initial="hidden" animate="show">
 
       {/* ── Greeting ── */}
-      <motion.div variants={item}>
-        <p className="text-[10px] uppercase tracking-[0.42em] text-gold">Bienvenue</p>
-        <h1 className="font-display mt-1 text-5xl leading-tight">
-          Bonjour{firstName ? (
-            <>, <em className="text-gold">{firstName}</em></>
-          ) : ""}.
+      <motion.div variants={item} className="border-b border-ink/8 pb-7">
+        <p className="text-[9px] uppercase tracking-[0.5em] text-gold">Bienvenue</p>
+        <h1 className="font-display mt-2 text-6xl leading-[1.05]">
+          Bonjour,
+          <br />
+          {firstName
+            ? <><em className="text-gold">{firstName}</em>.</>
+            : <span className="text-smoke">…</span>}
         </h1>
-        <p className="mt-2 text-sm text-smoke">
+        <p className="mt-3 text-sm text-smoke">
           Que portez-vous aujourd&apos;hui ?
         </p>
       </motion.div>
 
-      {/* ── Stats strip ── */}
-      <motion.div
-        variants={item}
-        className="mt-8 flex divide-x divide-ink/8 overflow-hidden rounded-2xl border border-ink/6 bg-white/70 shadow-card"
-      >
-        {stats.map((s) => (
-          <Link
-            key={s.label}
-            href={s.href}
-            className="flex-1 py-5 text-center transition hover:bg-sand/40"
-          >
-            <p className="font-display text-3xl">{s.value}</p>
-            <p className="mt-0.5 text-xs text-smoke">{s.label}</p>
-          </Link>
+      {/* ── Stats inline ── */}
+      <motion.div variants={item} className="flex items-center gap-5 py-6">
+        {[
+          { label: "pièces", value: garments.length, href: "/dressing" },
+          { label: "tenues", value: outfits.length, href: "/tenues" },
+          { label: "notées", value: rated, href: "/tenues" },
+        ].map((s, i) => (
+          <span key={s.label} className="flex items-center gap-5">
+            {i > 0 && <span className="text-ink/15 select-none">·</span>}
+            <Link href={s.href} className="group flex items-baseline gap-1.5">
+              <span className="font-display text-3xl leading-none transition-colors group-hover:text-gold">
+                {s.value}
+              </span>
+              <span className="text-xs text-smoke">{s.label}</span>
+            </Link>
+          </span>
         ))}
       </motion.div>
 
-      {/* ── Action cards ── */}
-      <motion.div variants={item} className="mt-5 grid gap-3 sm:grid-cols-2">
-
-        {/* Créer une tenue */}
+      {/* ── Créer une tenue ── */}
+      <motion.div variants={item}>
         <Link
           href="/generer"
-          className="group relative overflow-hidden rounded-3xl bg-ink p-7 text-ivory shadow-card transition hover:shadow-lift"
+          className="group relative block overflow-hidden rounded-3xl bg-ink p-8 text-ivory shadow-card transition hover:shadow-lift"
         >
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-champagne/10 blur-2xl" />
-          <div className="pointer-events-none absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-black/20 to-transparent" />
-          <SparklesIcon className="relative h-6 w-6 text-champagne" />
-          <p className="font-display relative mt-5 text-3xl leading-snug">
-            Créer<br />une tenue
-          </p>
-          <p className="relative mt-2 text-sm leading-relaxed text-ivory/55">
-            L&apos;IA compose selon la météo et l&apos;occasion.
-          </p>
-          <div className="relative mt-6 inline-flex items-center gap-1 text-sm text-champagne">
-            Composer{" "}
-            <span className="inline-block transition-transform duration-200 group-hover:translate-x-1">→</span>
+          <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-champagne/10 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 left-0 h-32 w-full bg-gradient-to-t from-black/20 to-transparent" />
+
+          <SparklesIcon className="relative h-5 w-5 text-champagne/80" />
+
+          <div className="relative mt-6">
+            <p className="text-[9px] uppercase tracking-[0.45em] text-champagne/50">
+              Styliste IA
+            </p>
+            <h2 className="font-display mt-2 text-5xl leading-tight">
+              Créer une<br />tenue du jour
+            </h2>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-ivory/50">
+              Composée selon la météo, l&apos;occasion et vos styles.
+            </p>
+          </div>
+
+          <div className="relative mt-8 flex items-center gap-1.5 text-sm text-champagne">
+            Composer
+            <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>
         </Link>
+      </motion.div>
 
-        {/* Mode soirée */}
+      {/* ── Mode soirée ── */}
+      <motion.div variants={item} className="mt-3">
         <Link
           href="/soiree"
-          className="group relative overflow-hidden rounded-3xl bg-night p-7 text-ivory shadow-card transition hover:shadow-lift"
+          className="group relative block overflow-hidden rounded-3xl bg-night p-7 text-ivory shadow-card transition hover:shadow-lift"
         >
-          <div className="pointer-events-none absolute -left-8 -top-8 h-36 w-36 rounded-full bg-champagne/8 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-4 -right-4 h-28 w-28 rounded-full bg-terracotta/8 blur-2xl" />
-          <DiscoIcon className="relative h-6 w-6 text-champagne" />
-          <p className="font-display relative mt-5 text-3xl italic leading-snug text-champagne">
-            Mode<br />soirée
-          </p>
-          <p className="relative mt-2 text-sm leading-relaxed text-ivory/55">
-            Vos pièces les plus élégantes pour la nuit.
-          </p>
-          <div className="relative mt-6 inline-flex items-center gap-1 text-sm text-champagne">
-            Préparer{" "}
-            <span className="inline-block transition-transform duration-200 group-hover:translate-x-1">→</span>
+          <div className="pointer-events-none absolute -left-8 -top-6 h-36 w-36 rounded-full bg-champagne/8 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-4 right-0 h-28 w-28 rounded-full bg-terracotta/6 blur-2xl" />
+
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[9px] uppercase tracking-[0.45em] text-champagne/50">
+                Collection nocturne
+              </p>
+              <h2 className="font-display mt-2 text-4xl italic text-champagne leading-tight">
+                Mode soirée
+              </h2>
+              <p className="mt-2 text-sm text-ivory/45">
+                Vos pièces les plus élégantes pour la nuit.
+              </p>
+            </div>
+            <DiscoIcon className="mt-1 h-8 w-8 shrink-0 text-champagne/30" />
+          </div>
+
+          <div className="relative mt-6 flex items-center gap-1.5 text-sm text-champagne">
+            Préparer
+            <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>
         </Link>
       </motion.div>
@@ -120,12 +129,9 @@ export default function HomePage() {
       {/* ── Dernières tenues ── */}
       <motion.div variants={item} className="mt-10">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-display text-xl">Dernières tenues</h2>
+          <h2 className="font-display text-2xl">Dernières tenues</h2>
           {outfits.length > 0 && (
-            <Link
-              href="/tenues"
-              className="text-sm text-gold underline-offset-4 hover:underline"
-            >
+            <Link href="/tenues" className="text-sm text-gold underline-offset-4 hover:underline">
               Tout voir
             </Link>
           )}
@@ -135,14 +141,14 @@ export default function HomePage() {
           <div className="mt-4 rounded-2xl bg-sand/50 p-8 text-center">
             <HangerIcon className="mx-auto h-8 w-8 text-smoke" />
             <p className="mt-3 text-sm text-smoke">
-              Aucune tenue pour l&apos;instant. Commencez par composer la première.
+              Aucune tenue pour l&apos;instant.
             </p>
             <Link href="/generer" className="btn-primary mt-4 inline-flex">
               Composer ma première tenue
             </Link>
           </div>
         ) : (
-          <div className="-mx-5 mt-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="-mx-5 mt-5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex gap-3 px-5" style={{ width: "max-content" }}>
               {outfits.slice(0, 8).map((o) => {
                 const cover = o.items
@@ -152,7 +158,7 @@ export default function HomePage() {
                   <Link
                     key={o.id}
                     href="/tenues"
-                    className={`w-40 shrink-0 overflow-hidden rounded-2xl shadow-card transition hover:shadow-lift hover:-translate-y-1 ${
+                    className={`group w-36 shrink-0 overflow-hidden rounded-2xl shadow-card transition hover:-translate-y-1 hover:shadow-lift ${
                       o.evening ? "bg-night" : "bg-white"
                     }`}
                   >
@@ -162,11 +168,11 @@ export default function HomePage() {
                         <img
                           src={o.tryOnImage || cover}
                           alt={o.title}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                         />
                       )}
                     </div>
-                    <p className={`truncate px-3 py-2.5 text-xs font-medium ${
+                    <p className={`truncate px-3 py-2.5 text-xs ${
                       o.evening ? "text-champagne" : "text-ink"
                     }`}>
                       {o.title}
