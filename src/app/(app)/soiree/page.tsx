@@ -230,9 +230,9 @@ function SelectedCard({
             style={{ background: "rgba(196,168,136,0.18)", backdropFilter: "blur(2px)" }}
           >
             <div className="w-full overflow-hidden rounded-2xl" style={{
-              background: "#e8d8c4",
-              border: "1.5px solid #d8c39a",
-              boxShadow: "0 0 16px rgba(216,195,154,0.7), 0 0 40px rgba(216,195,154,0.35), inset 0 0 12px rgba(216,195,154,0.1)"
+              background: "#f5ede4",
+              border: "2px solid #DDB8A8",
+              boxShadow: "0 0 8px #DDB8A8, 0 0 22px rgba(221,184,168,0.8), 0 0 50px rgba(221,184,168,0.4)"
             }}>
               <button
                 onClick={() => { onToggle(garment); setMenuOpen(false); }}
