@@ -6,6 +6,7 @@ import PhotoInput from "@/components/PhotoInput";
 import { STYLES } from "@/lib/types";
 import { SettingsIcon } from "@/components/icons";
 import SettingsDrawer from "@/components/SettingsDrawer";
+import { useT } from "@/contexts/LanguageContext";
 
 interface Me {
   name: string;
@@ -21,6 +22,7 @@ interface Me {
 }
 
 export default function ProfilePage() {
+  const t = useT();
   const [me, setMe] = useState<Me | null>(null);
   const [styles, setStyles] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
@@ -61,15 +63,15 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
-  if (!me) return <p className="text-smoke">Chargement…</p>;
+  if (!me) return <p className="text-smoke">{t("evening.loading")}</p>;
 
   return (
     <>
     <div className="max-w-3xl">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-gold">Préférences</p>
-          <h1 className="font-display mt-1 text-4xl">Profil</h1>
+          <p className="text-xs uppercase tracking-[0.3em] text-gold">{t("profile.label")}</p>
+          <h1 className="font-display mt-1 text-4xl">{t("profile.title")}</h1>
           <p className="mt-2 text-sm text-smoke">
             {me.name} · {me.email}
           </p>
@@ -85,18 +87,18 @@ export default function ProfilePage() {
 
       <div className="mt-10 grid gap-10 sm:grid-cols-[220px_1fr]">
         <div>
-          <h2 className="font-display text-xl">Ma silhouette</h2>
+          <h2 className="font-display text-xl">{t("profile.silhouette")}</h2>
           <p className="mb-3 mt-1 text-xs text-smoke leading-relaxed">
-            Photo en pied utilisée pour l&apos;essayage virtuel des tenues.
+            {t("profile.silhouette_sub")}
           </p>
-          <PhotoInput value={photo} onChange={setPhoto} label="Photo en pied" />
+          <PhotoInput value={photo} onChange={setPhoto} label={t("profile.photo_label")} />
         </div>
 
         <div className="space-y-8">
           <section>
-            <h2 className="font-display text-xl">Mes styles</h2>
+            <h2 className="font-display text-xl">{t("profile.styles")}</h2>
             <p className="mt-1 text-xs text-smoke">
-              L&apos;IA compose vos tenues selon ces styles.
+              {t("profile.styles_sub")}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {STYLES.map((s) => (
@@ -118,9 +120,9 @@ export default function ProfilePage() {
           </section>
 
           <section>
-            <h2 className="font-display text-xl">Mes villes</h2>
+            <h2 className="font-display text-xl">{t("profile.cities")}</h2>
             <p className="mt-1 text-xs text-smoke">
-              Raccourcis météo pour la génération de tenues.
+              {t("profile.cities_sub")}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {cities.map((c) => (
@@ -146,7 +148,7 @@ export default function ProfilePage() {
               >
                 <input
                   className="field !w-44 !py-2"
-                  placeholder="Ajouter une ville…"
+                  placeholder={t("profile.add_city")}
                   value={cityInput}
                   onChange={(e) => setCityInput(e.target.value)}
                 />
@@ -157,9 +159,9 @@ export default function ProfilePage() {
 
           <div className="flex items-center gap-4">
             <button className="btn-primary" disabled={saving} onClick={save}>
-              {saving ? "Enregistrement…" : "Enregistrer"}
+              {saving ? t("profile.saving") : t("profile.save")}
             </button>
-            {saved && <span className="text-sm text-gold">✓ Profil mis à jour</span>}
+            {saved && <span className="text-sm text-gold">{t("profile.saved")}</span>}
           </div>
         </div>
       </div>

@@ -12,8 +12,10 @@ import {
   type Garment,
 } from "@/lib/types";
 import { DiscoIcon } from "@/components/icons";
+import { useT } from "@/contexts/LanguageContext";
 
 export default function DressingPage() {
+  const t = useT();
   const [garments, setGarments] = useState<Garment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Category | "tous">("tous");
@@ -42,16 +44,16 @@ export default function DressingPage() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-gold">Ma garde-robe</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-gold">{t("dressing.label")}</p>
           <h1 className="font-display mt-1 text-4xl">
-            Dressing
+            {t("dressing.title")}
             <span className="ml-3 align-middle text-base text-smoke font-body">
-              {garments.length} pièce{garments.length > 1 ? "s" : ""}
+              {garments.length} {garments.length > 1 ? t("evening.pieces") : t("evening.piece")}
             </span>
           </h1>
         </div>
         <button className="btn-primary" onClick={() => setAdding(true)}>
-          + Ajouter un vêtement
+          {t("dressing.add")}
         </button>
       </div>
 
@@ -60,7 +62,7 @@ export default function DressingPage() {
           value={filter}
           onChange={(v) => setFilter(v as Category | "tous")}
           options={[
-            { value: "tous", label: "Toutes les catégories", count: garments.length },
+            { value: "tous", label: t("dressing.all_categories"), count: garments.length },
             ...CATEGORIES.map((c) => ({
               value: c,
               label: CATEGORY_LABELS[c],
@@ -71,16 +73,15 @@ export default function DressingPage() {
       </div>
 
       {loading ? (
-        <p className="mt-16 text-center text-smoke">Chargement du dressing…</p>
+        <p className="mt-16 text-center text-smoke">{t("dressing.loading")}</p>
       ) : filtered.length === 0 ? (
         <div className="mt-16 rounded-3xl bg-sand/50 p-12 text-center">
-          <p className="font-display text-2xl">Votre dressing est vide.</p>
+          <p className="font-display text-2xl">{t("dressing.empty_title")}</p>
           <p className="mt-2 text-smoke">
-            Photographiez vos vêtements — l&apos;IA identifie automatiquement
-            type, coupe, couleurs et matière.
+            {t("dressing.empty_sub")}
           </p>
           <button className="btn-primary mt-6" onClick={() => setAdding(true)}>
-            Ajouter ma première pièce
+            {t("dressing.add_first")}
           </button>
         </div>
       ) : (

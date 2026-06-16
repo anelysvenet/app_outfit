@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { SparklesIcon, DiscoIcon, HangerIcon } from "@/components/icons";
 import type { Garment, Outfit } from "@/lib/types";
+import { useT } from "@/contexts/LanguageContext";
 
 interface Me { name: string; photo?: string }
 
@@ -15,6 +16,7 @@ const item = {
 };
 
 export default function HomePage() {
+  const t = useT();
   const [me, setMe] = useState<Me | null>(null);
   const [garments, setGarments] = useState<Garment[]>([]);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
@@ -28,30 +30,33 @@ export default function HomePage() {
   const firstName = me?.name?.split(" ")[0] ?? "";
   const rated = outfits.filter((o) => typeof o.rating === "number").length;
 
+  const [createLine1, createLine2] = t("home.create_title").split("\n");
+  const [eveningLine1, eveningLine2] = t("home.evening_title").split("\n");
+
   return (
     <motion.div variants={container} initial="hidden" animate="show">
 
       {/* ── Greeting ── */}
       <motion.div variants={item} className="border-b border-ink/8 pb-7">
-        <p className="text-[9px] uppercase tracking-[0.5em] text-gold">Bienvenue</p>
+        <p className="text-[9px] uppercase tracking-[0.5em] text-gold">{t("home.welcome")}</p>
         <h1 className="font-display mt-2 text-6xl leading-[1.05]">
-          Bonjour,
+          {t("home.hello")},
           <br />
           {firstName
             ? <><em className="text-gold">{firstName}</em>.</>
             : <span className="text-smoke">…</span>}
         </h1>
         <p className="mt-3 text-sm text-smoke">
-          Que portez-vous aujourd&apos;hui ?
+          {t("home.subtitle")}
         </p>
       </motion.div>
 
       {/* ── Stats inline ── */}
       <motion.div variants={item} className="flex items-center gap-5 py-6">
         {[
-          { label: "pièces", value: garments.length, href: "/dressing" },
-          { label: "tenues", value: outfits.length, href: "/tenues" },
-          { label: "notées", value: rated, href: "/tenues" },
+          { label: t("home.pieces"), value: garments.length, href: "/dressing" },
+          { label: t("home.outfits"), value: outfits.length, href: "/tenues" },
+          { label: t("home.rated"), value: rated, href: "/tenues" },
         ].map((s, i) => (
           <span key={s.label} className="flex items-center gap-5">
             {i > 0 && <span className="text-ink/15 select-none">·</span>}
@@ -78,18 +83,18 @@ export default function HomePage() {
 
           <div className="relative mt-6">
             <p className="text-[9px] uppercase tracking-[0.45em] text-champagne/50">
-              Styliste IA
+              {t("home.create_label")}
             </p>
             <h2 className="font-display mt-2 text-5xl leading-tight">
-              Créer une<br />tenue du jour
+              {createLine1}<br />{createLine2}
             </h2>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-ivory/50">
-              Composée selon la météo, l&apos;occasion et vos styles.
+              {t("home.create_sub")}
             </p>
           </div>
 
           <div className="relative mt-8 flex items-center gap-1.5 text-sm text-champagne">
-            Composer
+            {t("home.compose")}
             <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>
         </Link>
@@ -107,20 +112,20 @@ export default function HomePage() {
           <div className="relative flex items-start justify-between gap-4">
             <div>
               <p className="text-[9px] uppercase tracking-[0.45em] text-champagne/50">
-                Collection nocturne
+                {t("home.evening_label")}
               </p>
               <h2 className="font-display mt-2 text-4xl italic text-champagne leading-tight">
-                Mode soirée
+                {eveningLine1}<br />{eveningLine2}
               </h2>
               <p className="mt-2 text-sm text-ivory/45">
-                Vos pièces les plus élégantes pour la nuit.
+                {t("home.evening_sub")}
               </p>
             </div>
             <DiscoIcon className="mt-1 h-8 w-8 shrink-0 text-champagne/30" />
           </div>
 
           <div className="relative mt-6 flex items-center gap-1.5 text-sm text-champagne">
-            Préparer
+            {t("home.prepare")}
             <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>
         </Link>
@@ -129,10 +134,10 @@ export default function HomePage() {
       {/* ── Dernières tenues ── */}
       <motion.div variants={item} className="mt-10">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-display text-2xl">Dernières tenues</h2>
+          <h2 className="font-display text-2xl">{t("home.recent")}</h2>
           {outfits.length > 0 && (
             <Link href="/tenues" className="text-sm text-gold underline-offset-4 hover:underline">
-              Tout voir
+              {t("home.see_all")}
             </Link>
           )}
         </div>
@@ -141,10 +146,10 @@ export default function HomePage() {
           <div className="mt-4 rounded-2xl bg-sand/50 p-8 text-center">
             <HangerIcon className="mx-auto h-8 w-8 text-smoke" />
             <p className="mt-3 text-sm text-smoke">
-              Aucune tenue pour l&apos;instant.
+              {t("home.no_outfits")}
             </p>
             <Link href="/generer" className="btn-primary mt-4 inline-flex">
-              Composer ma première tenue
+              {t("home.first_outfit")}
             </Link>
           </div>
         ) : (

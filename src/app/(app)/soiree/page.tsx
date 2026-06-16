@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import type { Garment } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
+import { useT } from "@/contexts/LanguageContext";
 
 const stagger: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -16,6 +17,7 @@ const stagger: Variants = {
 };
 
 export default function SoireePage() {
+  const t = useT();
   const [garments, setGarments] = useState<Garment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +59,7 @@ export default function SoireePage() {
           transition={{ duration: 0.5 }}
           className="text-xs uppercase tracking-[0.35em] text-champagne/70"
         >
-          Collection nocturne
+          {t("evening.label")}
         </motion.p>
 
         <motion.h1
@@ -65,7 +67,7 @@ export default function SoireePage() {
           transition={{ duration: 0.5, delay: 0.07 }}
           className="font-display mt-1 text-5xl italic"
         >
-          Soirée
+          {t("evening.title")}
         </motion.h1>
 
         <motion.p
@@ -73,8 +75,7 @@ export default function SoireePage() {
           transition={{ duration: 0.6, delay: 0.15 }}
           className="mt-3 max-w-sm text-sm leading-relaxed text-ivory/45"
         >
-          Constituez votre garde-robe nocturne. L&apos;IA compose vos tenues
-          en priorité à partir de cette sélection.
+          {t("evening.subtitle")}
         </motion.p>
 
         <motion.div
@@ -87,7 +88,7 @@ export default function SoireePage() {
             className="inline-flex items-center gap-2.5 rounded-full bg-champagne px-7 py-3.5 text-sm font-medium text-night shadow-[0_0_28px_rgba(216,195,154,0.4)] transition hover:scale-[1.03] hover:shadow-[0_0_44px_rgba(216,195,154,0.55)] active:scale-[0.98]"
           >
             <span className="text-base leading-none">✦</span>
-            Composer une tenue de soirée
+            {t("evening.cta")}
           </Link>
         </motion.div>
       </div>
@@ -99,7 +100,7 @@ export default function SoireePage() {
             transition={{ repeat: Infinity, duration: 1.8 }}
             className="text-xs uppercase tracking-[0.3em] text-champagne/50"
           >
-            Chargement…
+            {t("evening.loading")}
           </motion.span>
         </div>
       ) : (
@@ -112,16 +113,16 @@ export default function SoireePage() {
                 exit={{ opacity: 0 }}
               >
                 <div className="flex items-baseline gap-3 px-5">
-                  <h2 className="font-display text-2xl">Ma sélection</h2>
+                  <h2 className="font-display text-2xl">{t("evening.selection")}</h2>
                   <span className="text-xs text-champagne">
-                    {selected.length} pièce{selected.length > 1 ? "s" : ""}
+                    {selected.length} {selected.length > 1 ? t("evening.pieces") : t("evening.piece")}
                   </span>
                 </div>
 
                 <div className="mt-5 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <div className="flex gap-4 px-5" style={{ width: "max-content" }}>
                     {selected.map((g, i) => (
-                      <SelectedCard key={g.id} garment={g} index={i} onToggle={toggleEvening} onDelete={deleteGarment} />
+                      <SelectedCard key={g.id} garment={g} index={i} onToggle={toggleEvening} onDelete={deleteGarment} t={t} />
                     ))}
                   </div>
                 </div>
@@ -135,15 +136,15 @@ export default function SoireePage() {
           {/* ── Reste du dressing ── */}
           <section className="px-5 pb-12">
             <h2 className="font-display text-2xl text-ivory/60">
-              {selected.length === 0 ? "Tout le dressing" : "Ajouter des pièces"}
+              {selected.length === 0 ? t("evening.all_dressing") : t("evening.add_pieces")}
             </h2>
             <p className="mb-6 mt-1 text-xs text-ivory/30 tracking-wide">
-              Touchez une pièce pour l&apos;intégrer à votre sélection nocturne
+              {t("evening.tap")}
             </p>
 
             {others.length === 0 ? (
               <p className="text-sm italic text-ivory/35">
-                Toutes vos pièces sont déjà dans la sélection soirée.
+                {t("evening.all_in")}
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -160,12 +161,13 @@ export default function SoireePage() {
 }
 
 function SelectedCard({
-  garment, index, onToggle, onDelete,
+  garment, index, onToggle, onDelete, t,
 }: {
   garment: Garment;
   index: number;
   onToggle: (g: Garment) => void;
   onDelete: (g: Garment) => void;
+  t: (key: string) => string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -239,7 +241,7 @@ function SelectedCard({
                 className="flex w-full items-center gap-2 px-4 py-3.5 text-left text-sm text-ink/80 transition hover:bg-black/8 cursor-pointer"
               >
                 <span className="text-[10px] text-ink/40">✦</span>
-                Retirer de l&apos;album soirée
+                {t("evening.remove")}
               </button>
               <div className="h-px bg-ink/10" />
               <button
@@ -247,7 +249,7 @@ function SelectedCard({
                 className="flex w-full items-center gap-2 px-4 py-3.5 text-left text-sm font-medium text-terracotta transition hover:bg-terracotta/10 cursor-pointer"
               >
                 <span className="text-xs">✕</span>
-                Supprimer l&apos;article
+                {t("evening.delete")}
               </button>
             </div>
           </motion.div>

@@ -10,17 +10,19 @@ import {
   DiscoIcon,
   UserIcon,
 } from "./icons";
-
-const TABS = [
-  { href: "/accueil", label: "Accueil", Icon: HomeIcon },
-  { href: "/dressing", label: "Dressing", Icon: HangerIcon },
-  { href: "/generer", label: "Créer", Icon: SparklesIcon, featured: true },
-  { href: "/soiree", label: "Soirée", Icon: DiscoIcon },
-  { href: "/profil", label: "Profil", Icon: UserIcon },
-];
+import { useT } from "@/contexts/LanguageContext";
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const t = useT();
+
+  const TABS = [
+    { href: "/accueil", label: t("nav.home"), Icon: HomeIcon },
+    { href: "/dressing", label: t("nav.dressing"), Icon: HangerIcon },
+    { href: "/generer", label: t("nav.create"), Icon: SparklesIcon, featured: true },
+    { href: "/soiree", label: t("nav.evening"), Icon: DiscoIcon },
+    { href: "/profil", label: t("nav.profile"), Icon: UserIcon },
+  ];
 
   return (
     <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
