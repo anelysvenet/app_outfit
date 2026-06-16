@@ -2,15 +2,40 @@
 
 import { useState } from "react";
 import PhotoInput from "./PhotoInput";
+import { useT } from "@/contexts/LanguageContext";
 import {
   CATEGORIES,
-  CATEGORY_LABELS,
   CUTS,
   SEASONS,
   STYLES,
   type Category,
   type Garment,
 } from "@/lib/types";
+
+// Map category values to i18n keys
+const CATEGORY_KEYS: Record<Category, string> = {
+  haut: "cat.haut",
+  bas: "cat.bas",
+  robe: "cat.robe",
+  veste: "cat.veste",
+  chaussures: "cat.chaussures",
+  sac: "cat.sac",
+  sacoche: "cat.sacoche",
+  ceinture: "cat.ceinture",
+  chapeau: "cat.chapeau",
+  bijoux: "cat.bijoux",
+  lunettes: "cat.lunettes",
+  foulard: "cat.foulard",
+  accessoire: "cat.accessoire",
+};
+
+// Map season values to i18n keys
+const SEASON_KEYS: Record<string, string> = {
+  printemps: "season.printemps",
+  été: "season.ete",
+  automne: "season.automne",
+  hiver: "season.hiver",
+};
 
 export interface GarmentDraft {
   photoDataUrl?: string;
@@ -50,6 +75,7 @@ export default function GarmentForm({
   existing?: Garment;
   onSaved: (garment: Garment) => void;
 }) {
+  const t = useT();
   const [photo, setPhoto] = useState<string | null>(existing?.photo ?? null);
   const [draft, setDraft] = useState<GarmentDraft>(
     existing
@@ -125,7 +151,7 @@ export default function GarmentForm({
     try {
       const isNew = !existing;
       if (isNew && (!photo || !photo.startsWith("data:"))) {
-        throw new Error("Ajoutez une photo du vêtement.");
+        throw new Error(t("form.photo_required"));
       }
       const payload = {
         ...draft,
@@ -157,7 +183,7 @@ export default function GarmentForm({
         <PhotoInput
           value={photo}
           onChange={setPhoto}
-          label="Photo du vêtement"
+          label={t("form.photo_label")}
         />
         <button
           type="button"
@@ -165,18 +191,17 @@ export default function GarmentForm({
           disabled={!photo?.startsWith("data:") || analyzing}
           onClick={analyze}
         >
-          {analyzing ? "Analyse en cours…" : "✦ Analyser avec l'IA"}
+          {analyzing ? t("form.analyzing") : t("form.analyze")}
         </button>
         <p className="text-xs text-smoke leading-relaxed">
-          L&apos;IA identifie automatiquement type, coupe, couleurs, matière,
-          saisons et style. Vous pouvez tout ajuster ensuite.
+          {t("form.analyze_sub")}
         </p>
       </div>
 
       <div className="space-y-4">
         <input
           className="field"
-          placeholder="Nom du vêtement"
+          placeholder={t("form.name_placeholder")}
           value={draft.name}
           onChange={(e) => set("name", e.target.value)}
         />
@@ -188,13 +213,13 @@ export default function GarmentForm({
           >
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {CATEGORY_LABELS[c]}
+                {t(CATEGORY_KEYS[c])}
               </option>
             ))}
           </select>
           <input
             className="field"
-            placeholder="Type (chemise, jean…)"
+            placeholder={t("form.type_placeholder")}
             value={draft.type}
             onChange={(e) => set("type", e.target.value)}
           />
@@ -205,7 +230,7 @@ export default function GarmentForm({
             value={draft.cut}
             onChange={(e) => set("cut", e.target.value)}
           >
-            <option value="">Coupe…</option>
+            <option value="">{t("form.cut_placeholder")}</option>
             {CUTS.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -214,14 +239,14 @@ export default function GarmentForm({
           </select>
           <input
             className="field"
-            placeholder="Matière (coton, lin…)"
+            placeholder={t("form.material_placeholder")}
             value={draft.material}
             onChange={(e) => set("material", e.target.value)}
           />
         </div>
         <input
           className="field"
-          placeholder="Couleurs (séparées par des virgules)"
+          placeholder={t("form.colors_placeholder")}
           value={draft.colors.join(", ")}
           onChange={(e) =>
             set(
@@ -234,7 +259,7 @@ export default function GarmentForm({
           }
         />
         <div>
-          <p className="mb-2 text-xs uppercase tracking-[0.2em] text-smoke">Saisons</p>
+          <p className="mb-2 text-xs uppercase tracking-[0.2em] text-smoke">{t("form.seasons")}</p>
           <div className="flex flex-wrap gap-2">
             {SEASONS.map((s) => (
               <button
@@ -243,13 +268,13 @@ export default function GarmentForm({
                 onClick={() => toggle("seasons", s)}
                 className={`chip ${draft.seasons.includes(s) ? "chip-active" : ""}`}
               >
-                {s}
+                {t(SEASON_KEYS[s] ?? s)}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <p className="mb-2 text-xs uppercase tracking-[0.2em] text-smoke">Styles</p>
+          <p className="mb-2 text-xs uppercase tracking-[0.2em] text-smoke">{t("form.styles")}</p>
           <div className="flex flex-wrap gap-2">
             {STYLES.map((s) => (
               <button
@@ -258,21 +283,21 @@ export default function GarmentForm({
                 onClick={() => toggle("styles", s)}
                 className={`chip ${draft.styles.includes(s) ? "chip-active" : ""}`}
               >
-                {s}
+                {t(`style.${s}`)}
               </button>
             ))}
           </div>
         </div>
         <input
           className="field"
-          placeholder="Marque (facultatif)"
+          placeholder={t("form.brand_placeholder")}
           value={draft.brand}
           onChange={(e) => set("brand", e.target.value)}
         />
         <textarea
           className="field"
           rows={2}
-          placeholder="Description courte (coupe, style, détails…)"
+          placeholder={t("form.description_placeholder")}
           value={draft.description}
           onChange={(e) => set("description", e.target.value)}
         />
@@ -284,13 +309,13 @@ export default function GarmentForm({
             className="h-4 w-4 accent-[#d8c39a]"
           />
           <span>
-            <span className="font-display italic text-champagne">Soirée</span> —
-            classer ce vêtement pour les événements et sorties nocturnes
+            <span className="font-display italic text-champagne">{t("form.evening_label")}</span> —
+            {t("form.evening_sub")}
           </span>
         </label>
         {error && <p className="text-sm text-terracotta">{error}</p>}
         <button className="btn-primary w-full" disabled={saving} onClick={save}>
-          {saving ? "Enregistrement…" : existing ? "Mettre à jour" : "Ajouter au dressing"}
+          {saving ? t("form.saving") : existing ? t("form.update") : t("form.save")}
         </button>
       </div>
     </div>

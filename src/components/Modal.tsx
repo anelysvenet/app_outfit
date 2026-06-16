@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { useT } from "@/contexts/LanguageContext";
 
 export default function Modal({
   open,
@@ -15,6 +16,7 @@ export default function Modal({
   children: React.ReactNode;
   wide?: boolean;
 }) {
+  const t = useT();
   return (
     <AnimatePresence>
       {open && (
@@ -41,7 +43,7 @@ export default function Modal({
                 onClick={onClose}
                 className="rounded-full border border-ink/10 px-3 py-1 text-sm text-smoke hover:border-gold hover:text-gold transition cursor-pointer"
               >
-                Fermer
+                {t("form.close")}
               </button>
             </div>
             {children}

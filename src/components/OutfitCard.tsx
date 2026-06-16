@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Stars from "./Stars";
+import { useT } from "@/contexts/LanguageContext";
 import type { Garment, Outfit } from "@/lib/types";
 
 export default function OutfitCard({
@@ -20,6 +21,7 @@ export default function OutfitCard({
   onDeleted?: () => void;
   index?: number;
 }) {
+  const t = useT();
   const [rating, setRating] = useState(outfit.rating);
   const [tryOnImage, setTryOnImage] = useState(outfit.tryOnImage);
   const [tryOnLoading, setTryOnLoading] = useState(false);
@@ -51,18 +53,16 @@ export default function OutfitCard({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setTryOnMessage(data.error ?? "Essayage impossible");
+        setTryOnMessage(data.error ?? t("outfit.try_on_impossible"));
       } else if (data.image) {
         setTryOnImage(data.image);
       } else {
         // fal.ai absent ou indisponible → rendu lookbook élégant
         setShowLookbook(true);
-        setTryOnMessage(
-          "Essayage réaliste indisponible — voici votre lookbook.",
-        );
+        setTryOnMessage(t("outfit.lookbook_fallback"));
       }
     } catch {
-      setTryOnMessage("Essayage impossible, réessayez.");
+      setTryOnMessage(t("outfit.try_on_retry"));
     } finally {
       setTryOnLoading(false);
     }
@@ -122,20 +122,20 @@ export default function OutfitCard({
           {outfit.explanation}
         </p>
         <p className={`mt-3 text-sm italic ${outfit.evening ? "text-champagne" : "text-gold"}`}>
-          Conseil styliste — {outfit.tips}
+          {outfit.tips}
         </p>
 
         {/* Essayage virtuel */}
         {(tryOnImage || showLookbook) && (
           <div className="mt-6 rounded-2xl bg-sand/40 p-4">
             <p className={`mb-3 text-xs uppercase tracking-[0.2em] ${outfit.evening ? "text-champagne" : "text-gold"}`}>
-              Essayage virtuel
+              {t("outfit.virtual_try_on_label")}
             </p>
             {tryOnImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={tryOnImage}
-                alt="Essayage virtuel"
+                alt={t("outfit.virtual_try_on_label")}
                 className="mx-auto max-h-[480px] rounded-xl object-contain"
               />
             ) : (
@@ -144,7 +144,7 @@ export default function OutfitCard({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={userPhoto}
-                    alt="Vous"
+                    alt=""
                     className="h-72 rounded-xl object-cover"
                   />
                 )}
@@ -181,13 +181,13 @@ export default function OutfitCard({
                 : "bg-ink text-ivory hover:bg-night"
             }`}
           >
-            {tryOnLoading ? "Génération en cours…" : "✦ Essayage virtuel"}
+            {tryOnLoading ? t("outfit.generating") : t("outfit.try_on")}
           </button>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className={`mb-1 text-xs ${outfit.evening ? "text-ivory/50" : "text-smoke"}`}>
-                Notez cette tenue pour affiner vos recommandations
+                {t("outfit.rate_label")}
               </p>
               <Stars value={rating} onChange={rate} />
             </div>
@@ -199,7 +199,7 @@ export default function OutfitCard({
                 }}
                 className={`text-sm transition cursor-pointer ${outfit.evening ? "text-ivory/50 hover:text-terracotta" : "text-smoke hover:text-terracotta"}`}
               >
-                Supprimer
+                {t("outfit.delete")}
               </button>
             )}
           </div>

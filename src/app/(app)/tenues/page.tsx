@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import OutfitCard from "@/components/OutfitCard";
+import { useT } from "@/contexts/LanguageContext";
 import type { Garment, Outfit } from "@/lib/types";
 
 export default function OutfitsPage() {
+  const t = useT();
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [garments, setGarments] = useState<Garment[]>([]);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -26,20 +28,19 @@ export default function OutfitsPage() {
 
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.3em] text-gold">Historique</p>
-      <h1 className="font-display mt-1 text-4xl">Mes tenues</h1>
+      <p className="text-xs uppercase tracking-[0.3em] text-gold">{t("outfits.label")}</p>
+      <h1 className="font-display mt-1 text-4xl">{t("outfits.title")}</h1>
       <p className="mt-2 text-sm text-smoke">
-        Toutes les tenues composées par votre styliste IA. Vos notes affinent
-        les prochaines recommandations.
+        {t("outfits.subtitle")}
       </p>
 
       {loading ? (
-        <p className="mt-16 text-center text-smoke">Chargement…</p>
+        <p className="mt-16 text-center text-smoke">{t("outfits.loading")}</p>
       ) : outfits.length === 0 ? (
         <div className="mt-16 rounded-3xl bg-sand/50 p-12 text-center">
-          <p className="font-display text-2xl">Aucune tenue pour l&apos;instant.</p>
+          <p className="font-display text-2xl">{t("outfits.empty_title")}</p>
           <Link href="/generer" className="btn-primary mt-6 inline-flex">
-            Composer ma première tenue
+            {t("outfits.create")}
           </Link>
         </div>
       ) : (

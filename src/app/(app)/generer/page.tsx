@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import OutfitCard from "@/components/OutfitCard";
+import { useT } from "@/contexts/LanguageContext";
 import {
   OCCASIONS,
   type Garment,
@@ -25,6 +26,7 @@ function WeatherPanel({
   weather: WeatherSnapshot;
   evening: boolean;
 }) {
+  const t = useT();
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -39,16 +41,17 @@ function WeatherPanel({
         {weather.condition}
       </p>
       <div className={`mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 ${evening ? "text-ivory/70" : "text-smoke"}`}>
-        <div>Ressenti <span className="block text-base text-current font-medium">{weather.feelsLike}°C</span></div>
-        <div>Vent <span className="block text-base font-medium">{weather.windSpeed} km/h</span></div>
-        <div>Pluie <span className="block text-base font-medium">{weather.rainProbability}%</span></div>
-        <div>Min / Max <span className="block text-base font-medium">{weather.tempMin}° / {weather.tempMax}°</span></div>
+        <div>{t("gen.weather_feels")} <span className="block text-base text-current font-medium">{weather.feelsLike}°C</span></div>
+        <div>{t("gen.weather_wind")} <span className="block text-base font-medium">{weather.windSpeed} km/h</span></div>
+        <div>{t("gen.weather_rain")} <span className="block text-base font-medium">{weather.rainProbability}%</span></div>
+        <div>{t("gen.weather_minmax")} <span className="block text-base font-medium">{weather.tempMin}° / {weather.tempMax}°</span></div>
       </div>
     </motion.div>
   );
 }
 
 function GeneratorContent() {
+  const t = useT();
   const searchParams = useSearchParams();
   const [me, setMe] = useState<Me | null>(null);
   const [garments, setGarments] = useState<Garment[]>([]);
@@ -80,7 +83,7 @@ function GeneratorContent() {
     try {
       const res = await fetch(`/api/weather?city=${encodeURIComponent(city)}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Météo indisponible");
+      if (!res.ok) throw new Error(data.error ?? t("gen.weather_error"));
       setWeather(data.weather);
       // mémorise la ville dans le profil
       if (me && !me.cities.includes(data.weather.city)) {
@@ -93,7 +96,7 @@ function GeneratorContent() {
         });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Météo indisponible");
+      setError(e instanceof Error ? e.message : t("gen.weather_error"));
     } finally {
       setWeatherLoading(false);
     }
@@ -101,7 +104,7 @@ function GeneratorContent() {
 
   function loadWeatherByGeolocation() {
     if (!navigator.geolocation) {
-      setError("Géolocalisation non supportée par ce navigateur.");
+      setError(t("gen.geo_unsupported"));
       return;
     }
     setWeatherLoading(true);
@@ -113,19 +116,17 @@ function GeneratorContent() {
             `/api/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
           );
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error ?? "Météo indisponible");
+          if (!res.ok) throw new Error(data.error ?? t("gen.weather_error"));
           setWeather(data.weather);
         } catch (e) {
-          setError(e instanceof Error ? e.message : "Météo indisponible");
+          setError(e instanceof Error ? e.message : t("gen.weather_error"));
         } finally {
           setWeatherLoading(false);
         }
       },
       () => {
         setWeatherLoading(false);
-        setError(
-          "Géolocalisation refusée par le navigateur — autorisez-la dans les paramètres, ou tapez votre ville manuellement.",
-        );
+        setError(t("gen.geo_denied"));
       },
       { timeout: 10000, enableHighAccuracy: false },
     );
@@ -142,10 +143,10 @@ function GeneratorContent() {
         body: JSON.stringify({ occasion, evening, weather }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Génération impossible");
+      if (!res.ok) throw new Error(data.error ?? t("gen.generate_error"));
       setResults(data.outfits);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Génération impossible");
+      setError(e instanceof Error ? e.message : t("gen.generate_error"));
     } finally {
       setGenerating(false);
     }
@@ -159,45 +160,44 @@ function GeneratorContent() {
 
   return (
     <div className={evening ? "min-h-full" : ""}>
-      <p className="text-xs uppercase tracking-[0.3em] text-gold">Styliste IA</p>
+      <p className="text-xs uppercase tracking-[0.3em] text-gold">{t("gen.label")}</p>
       <h1 className="font-display mt-1 text-4xl">
         {evening ? (
-          <>Tenue de <em className="text-champagne bg-night px-3 rounded-xl">soirée</em></>
+          <>{t("gen.title_evening").split(" ").slice(0, -1).join(" ")} <em className="text-champagne bg-night px-3 rounded-xl">{t("gen.title_evening").split(" ").slice(-1)[0]}</em></>
         ) : (
-          "Créer une tenue"
+          t("gen.title")
         )}
       </h1>
 
       {!wardrobeReady && garments.length >= 0 && (
         <div className="mt-6 rounded-2xl border border-gold/30 bg-sand/50 p-5 text-sm">
-          <p className="font-medium mb-1">Dressing incomplet pour générer une tenue.</p>
+          <p className="font-medium mb-1">{t("gen.incomplete_title")}</p>
           <ul className="list-disc list-inside space-y-0.5 text-smoke">
             {!garments.some((g) => g.category === "chaussures") && (
-              <li>Ajoutez une paire de chaussures</li>
+              <li>{t("gen.incomplete_shoes")}</li>
             )}
             {!garments.some((g) => g.category === "robe") &&
               !garments.some((g) => g.category === "haut" || g.category === "veste") && (
-                <li>Ajoutez un haut, une veste ou une robe</li>
+                <li>{t("gen.incomplete_top")}</li>
             )}
             {!garments.some((g) => g.category === "robe") &&
               !garments.some((g) => g.category === "bas") && (
-                <li>Ajoutez un bas (pantalon, jupe…)</li>
+                <li>{t("gen.incomplete_bottom")}</li>
             )}
           </ul>
           <Link href="/dressing" className="mt-3 inline-block text-gold underline underline-offset-4">
-            Compléter mon dressing →
+            {t("gen.complete_dressing")}
           </Link>
         </div>
       )}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
         <div className="space-y-8">
-          {/* 1. Météo */}
+          {/* 1. Weather */}
           <section>
-            <h2 className="font-display text-xl">1 · La météo du jour</h2>
+            <h2 className="font-display text-xl">{t("gen.weather_title")}</h2>
             <p className="mt-1 text-sm text-smoke">
-              Activez la géolocalisation ou choisissez une ville — la tenue
-              tiendra compte de la température ressentie, du vent et de la pluie.
+              {t("gen.weather_sub")}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
@@ -205,7 +205,7 @@ function GeneratorContent() {
                 onClick={loadWeatherByGeolocation}
                 disabled={weatherLoading}
               >
-                ◉ Ma position
+                {t("gen.geolocate")}
               </button>
               {me?.cities.map((c) => (
                 <button
@@ -228,7 +228,7 @@ function GeneratorContent() {
               >
                 <input
                   className="field !w-44 !py-2"
-                  placeholder="Ajouter une ville…"
+                  placeholder={t("gen.city_placeholder")}
                   value={cityInput}
                   onChange={(e) => setCityInput(e.target.value)}
                 />
@@ -238,13 +238,13 @@ function GeneratorContent() {
             <div className="mt-4">
               {weatherLoading ? (
                 <p className="text-sm text-smoke animate-pulse">
-                  Récupération de la météo…
+                  {t("gen.weather_loading")}
                 </p>
               ) : weather ? (
                 <WeatherPanel weather={weather} evening={evening} />
               ) : (
                 <p className="text-sm text-smoke italic">
-                  Sans météo, l&apos;IA proposera des tenues polyvalentes.
+                  {t("gen.weather_none")}
                 </p>
               )}
             </div>
@@ -252,7 +252,7 @@ function GeneratorContent() {
 
           {/* 2. Occasion */}
           <section>
-            <h2 className="font-display text-xl">2 · L&apos;occasion</h2>
+            <h2 className="font-display text-xl">{t("gen.occasion_title")}</h2>
             <div className="mt-4 flex flex-wrap gap-2">
               {OCCASIONS.map((o) => (
                 <button
@@ -275,13 +275,13 @@ function GeneratorContent() {
                 className="h-4 w-4 accent-[#d8c39a]"
               />
               <span>
-                Mode <span className="font-display italic text-champagne">Soirée</span> —
-                privilégier ma sélection soirée
+                {t("gen.evening_mode")} <span className="font-display italic text-champagne">{t("gen.evening_mode_label")}</span> —
+                {t("gen.evening_mode_sub")}
               </span>
             </label>
           </section>
 
-          {/* 3. Génération */}
+          {/* 3. Generate */}
           <section>
             <button
               className="btn-primary w-full !py-4 text-base"
@@ -289,8 +289,8 @@ function GeneratorContent() {
               onClick={generate}
             >
               {generating
-                ? "L'IA compose vos tenues…"
-                : "✦ Composer mes tenues"}
+                ? t("gen.composing")
+                : t("gen.compose")}
             </button>
             {generating && (
               <motion.p
@@ -298,18 +298,18 @@ function GeneratorContent() {
                 animate={{ opacity: 1 }}
                 className="mt-3 text-center text-sm text-smoke"
               >
-                Analyse de votre garde-robe, de la météo et de vos goûts…
+                {t("gen.analyzing")}
               </motion.p>
             )}
             {error && <p className="mt-3 text-sm text-terracotta">{error}</p>}
           </section>
         </div>
 
-        {/* Aperçu dressing */}
+        {/* Wardrobe preview */}
         <aside className="hidden lg:block">
           <div className="rounded-2xl bg-sand/50 p-5">
             <p className="text-xs uppercase tracking-[0.2em] text-smoke">
-              Votre dressing · {garments.length} pièces
+              {t("gen.dressing_preview")} · {garments.length} {t("outfit.pieces")}
             </p>
             <div className="mt-3 grid grid-cols-4 gap-2">
               {garments.slice(0, 12).map((g) => (
@@ -335,10 +335,10 @@ function GeneratorContent() {
             className="mt-12"
           >
             <h2 className="font-display text-3xl">
-              Vos tenues <em className="text-gold">du jour</em>
+              {t("gen.results_title")} <em className="text-gold">{t("gen.results_em")}</em>
             </h2>
             <p className="mt-1 text-sm text-smoke">
-              Notez chaque proposition : l&apos;IA apprend vos goûts au fil du temps.
+              {t("gen.results_sub")}
             </p>
             <div className="mt-6 space-y-8">
               {results.map((o, i) => (
@@ -358,9 +358,14 @@ function GeneratorContent() {
   );
 }
 
+function GeneratorFallback() {
+  const t = useT();
+  return <p className="text-smoke">{t("gen.loading")}</p>;
+}
+
 export default function GeneratorPage() {
   return (
-    <Suspense fallback={<p className="text-smoke">Chargement…</p>}>
+    <Suspense fallback={<GeneratorFallback />}>
       <GeneratorContent />
     </Suspense>
   );
