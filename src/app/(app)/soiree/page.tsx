@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import type { Garment } from "@/lib/types";
@@ -34,6 +34,11 @@ export default function SoireePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ evening }),
     });
+  }
+
+  async function deleteGarment(g: Garment) {
+    setGarments((prev) => prev.filter((x) => x.id !== g.id));
+    await fetch(`/api/garments/${g.id}`, { method: "DELETE" });
   }
 
   const selected = garments.filter((g) => g.evening);
@@ -116,7 +121,7 @@ export default function SoireePage() {
                 <div className="mt-5 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <div className="flex gap-4 px-5" style={{ width: "max-content" }}>
                     {selected.map((g, i) => (
-                      <SelectedCard key={g.id} garment={g} index={i} onToggle={toggleEvening} />
+                      <SelectedCard key={g.id} garment={g} index={i} onToggle={toggleEvening} onDelete={deleteGarment} />
                     ))}
                   </div>
                 </div>
@@ -155,20 +160,35 @@ export default function SoireePage() {
 }
 
 function SelectedCard({
-  garment, index, onToggle,
+  garment, index, onToggle, onDelete,
 }: {
-  garment: Garment; index: number; onToggle: (g: Garment) => void;
+  garment: Garment;
+  index: number;
+  onToggle: (g: Garment) => void;
+  onDelete: (g: Garment) => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
   return (
-    <motion.button
+    <motion.div
       custom={index}
       variants={stagger}
       initial="hidden"
       animate="visible"
       layout
       whileHover={{ y: -5 }}
-      onClick={() => onToggle(garment)}
-      className="group relative w-44 shrink-0 cursor-pointer overflow-hidden rounded-2xl ring-1 ring-champagne/50 shadow-[0_0_28px_rgba(216,195,154,0.18)]"
+      className="group relative w-44 shrink-0 overflow-hidden rounded-2xl ring-1 ring-champagne/50 shadow-[0_0_28px_rgba(216,195,154,0.18)]"
     >
       <div className="aspect-[3/4] bg-ink">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -186,18 +206,46 @@ function SelectedCard({
         <p className="text-sm leading-tight text-ivory">{garment.name}</p>
       </div>
 
-      {/* Selected badge */}
-      <div className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-champagne text-[10px] text-night">
-        ✦
-      </div>
+      {/* ✕ button + dropdown menu */}
+      <div ref={menuRef} className="absolute right-2.5 top-2.5 z-10">
+        <button
+          onClick={() => setMenuOpen((o) => !o)}
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-night/70 text-xs text-ivory/80 backdrop-blur-sm transition hover:bg-night hover:text-ivory cursor-pointer"
+          aria-label="Options"
+        >
+          ✕
+        </button>
 
-      {/* Retirer overlay */}
-      <div className="absolute inset-0 flex items-center justify-center bg-night/65 opacity-0 transition-opacity duration-250 group-hover:opacity-100">
-        <span className="rounded-full border border-terracotta/50 bg-terracotta/20 px-4 py-1.5 text-xs text-ivory">
-          Retirer
-        </span>
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: -4 }}
+              transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+              style={{ transformOrigin: "top right" }}
+              className="absolute right-0 top-9 w-56 overflow-hidden rounded-2xl border border-ivory/10 bg-night/95 shadow-lift backdrop-blur-xl"
+            >
+              <button
+                onClick={() => { onToggle(garment); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm text-ivory/75 transition hover:bg-ivory/8 hover:text-champagne cursor-pointer"
+              >
+                <span className="text-champagne/50 text-xs">✦</span>
+                Supprimer de l&apos;album soirée
+              </button>
+              <div className="h-px bg-ivory/8" />
+              <button
+                onClick={() => { onDelete(garment); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm text-terracotta/80 transition hover:bg-terracotta/10 hover:text-terracotta cursor-pointer"
+              >
+                <span className="text-xs">✕</span>
+                Supprimer l&apos;article
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </motion.button>
+    </motion.div>
   );
 }
 
