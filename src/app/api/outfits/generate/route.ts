@@ -43,9 +43,10 @@ export async function POST(req: Request) {
       user: { styles: user.styles },
       wardrobe,
       weather: body.weather ?? null,
-      occasion: body.occasion || "Décontracté",
+      occasion: body.occasion || "Casual",
       evening: Boolean(body.evening),
       ratedOutfits,
+      lang: user.language,
     });
 
     if (!generated.length) {

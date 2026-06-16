@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Photo requise" }, { status: 400 });
     }
     const { base64, mediaType } = parseDataUrl(photoDataUrl);
-    const analysis = await analyzeGarmentPhoto(base64, mediaType);
+    const analysis = await analyzeGarmentPhoto(base64, mediaType, user.language);
     return NextResponse.json({ analysis });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Analyse impossible";

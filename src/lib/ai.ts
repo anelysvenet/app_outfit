@@ -43,15 +43,25 @@ const GarmentAnalysisSchema = z.object({
 
 export type GarmentAnalysis = z.infer<typeof GarmentAnalysisSchema>;
 
+const LANG_NAMES: Record<string, string> = {
+  fr: "French", en: "English", es: "Spanish", it: "Italian", de: "German", pt: "Portuguese",
+};
+
+function langInstruction(lang?: string) {
+  const name = LANG_NAMES[lang ?? "fr"] ?? "French";
+  return `Respond entirely in ${name}.`;
+}
+
 export async function analyzeGarmentPhoto(
   base64: string,
   mediaType: string,
+  lang?: string,
 ): Promise<GarmentAnalysis> {
   const response = await client().messages.parse({
     model: MODEL,
     max_tokens: 2048,
     system:
-      "Tu es un styliste expert en mode avec 20 ans d'expérience. Tu analyses des photos de vêtements pour cataloguer une garde-robe. Tes réponses sont précises, en français.",
+      `You are an expert fashion stylist with 20 years of experience. You analyze garment photos to catalogue a wardrobe. Your responses are precise. ${langInstruction(lang)}`,
     messages: [
       {
         role: "user",
@@ -66,7 +76,7 @@ export async function analyzeGarmentPhoto(
           },
           {
             type: "text",
-            text: "Analyse ce vêtement : identifie sa catégorie, son type, sa coupe, ses couleurs, sa matière probable, les saisons et styles adaptés, et s'il convient à une soirée.",
+            text: "Analyze this garment: identify its category, type, cut, colors, likely material, suitable seasons and styles, and whether it suits an evening occasion.",
           },
         ],
       },
@@ -117,6 +127,7 @@ export interface GenerationContext {
   occasion: string;
   evening: boolean;
   ratedOutfits: Outfit[];
+  lang?: string;
 }
 
 export interface GeneratedOutfit {
@@ -191,7 +202,7 @@ RÈGLES DE COMPOSITION :
     max_tokens: 4096,
     thinking: { type: "adaptive" },
     system:
-      "Tu es un directeur artistique et styliste personnel d'exception. Tu composes des tenues harmonieuses, réalistes et flatteuses à partir de la garde-robe réelle de l'utilisateur, en tenant compte de la météo, de l'occasion et de ses goûts. Tu réponds en français.",
+      `You are an exceptional artistic director and personal stylist. You compose harmonious, realistic and flattering outfits from the user's actual wardrobe, taking into account the weather, the occasion and their tastes. ${langInstruction(ctx.lang)}`,
     messages: [{ role: "user", content: prompt }],
     output_config: {
       format: zodOutputFormat(OutfitGenerationSchema),
