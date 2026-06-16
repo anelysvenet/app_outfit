@@ -11,6 +11,7 @@ import {
   type Category,
   type Garment,
 } from "@/lib/types";
+import { DiscoIcon } from "@/components/icons";
 
 export default function DressingPage() {
   const [garments, setGarments] = useState<Garment[]>([]);
@@ -104,8 +105,8 @@ export default function DressingPage() {
                     className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                   />
                   {g.evening && (
-                    <span className="absolute left-3 top-3 rounded-full bg-night/85 px-3 py-1 text-xs italic font-display text-champagne">
-                      Soirée
+                    <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-night/85 backdrop-blur-sm">
+                      <DiscoIcon className="h-4 w-4 text-champagne" />
                     </span>
                   )}
                   <button
