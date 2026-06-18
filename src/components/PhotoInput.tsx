@@ -3,50 +3,49 @@
 import { useRef, useState } from "react";
 import { useT } from "@/contexts/LanguageContext";
 
+/**
+ * Decode a file with EXIF orientation already applied (consistent across browsers),
+ * auto-rotate true landscape photos to portrait, and downscale.
+ */
 async function fileToDataUrl(file: File): Promise<string> {
-  const raw = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  // imageOrientation "from-image" bakes in EXIF rotation, so width/height are visually correct
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    bitmap = await createImageBitmap(file);
+  }
 
-  const img = document.createElement("img");
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-    img.src = raw;
-  });
+  const srcW = bitmap.width;
+  const srcH = bitmap.height;
+  const isLandscape = srcW > srcH; // only rotate genuine landscape photos
 
-  const srcW = img.naturalWidth;
-  const srcH = img.naturalHeight;
-
-  // Auto-rotate landscape images to portrait (garments often photographed sideways)
-  const isLandscape = srcW > srcH * 1.1;
-  const outW = isLandscape ? srcH : srcW; // portrait width
-  const outH = isLandscape ? srcW : srcH; // portrait height
+  // Target portrait display dimensions
+  const dispW = isLandscape ? srcH : srcW;
+  const dispH = isLandscape ? srcW : srcH;
 
   const MAX = 1280;
-  const scale = Math.min(1, MAX / Math.max(outW, outH));
-
-  if (!isLandscape && scale === 1 && file.size < 2_000_000) return raw;
+  const scale = Math.min(1, MAX / Math.max(dispW, dispH));
+  const outW = Math.round(dispW * scale);
+  const outH = Math.round(dispH * scale);
 
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(outW * scale);
-  canvas.height = Math.round(outH * scale);
+  canvas.width = outW;
+  canvas.height = outH;
   const ctx = canvas.getContext("2d")!;
 
   if (isLandscape) {
-    // Rotate 90° clockwise: translate to right edge then rotate
-    ctx.translate(canvas.width, 0);
+    // Rotate 90° clockwise into the portrait canvas
+    ctx.translate(outW, 0);
     ctx.rotate(Math.PI / 2);
-    // Draw at original landscape dimensions (canvas.height × canvas.width after rotation)
-    ctx.drawImage(img, 0, 0, canvas.height, canvas.width);
+    // In rotated space the axes are swapped: draw to (outH × outW)
+    ctx.drawImage(bitmap, 0, 0, outH, outW);
   } else {
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, outW, outH);
   }
 
-  return canvas.toDataURL("image/jpeg", 0.88);
+  bitmap.close?.();
+  return canvas.toDataURL("image/jpeg", 0.9);
 }
 
 /** Add a dark contrasting border so garment edges never touch the frame (prevents API clipping). */
@@ -66,10 +65,44 @@ async function padImage(dataUrl: string, pct = 0.12): Promise<string> {
   ctx.fillStyle = "#2d3a4a"; // dark blue-grey — contrasts with all clothing colours
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, px, py);
-  return canvas.toDataURL("image/jpeg", 0.90);
+  return canvas.toDataURL("image/jpeg", 0.9);
 }
 
-/** Composite a transparent PNG onto a white background with clean, crisp edges. */
+/**
+ * Keep only the largest connected opaque region; zero out everything else.
+ * Removes stray garment pieces sitting next to the main item.
+ */
+function keepLargestComponent(alpha: Uint8Array, w: number, h: number) {
+  const n = w * h;
+  const label = new Int32Array(n).fill(-1);
+  const stack = new Int32Array(n);
+  let cur = 0;
+  let bestLabel = -1;
+  let bestSize = 0;
+
+  for (let i = 0; i < n; i++) {
+    if (alpha[i] === 0 || label[i] !== -1) continue;
+    let sp = 0;
+    stack[sp++] = i;
+    label[i] = cur;
+    let size = 0;
+    while (sp > 0) {
+      const p = stack[--sp];
+      size++;
+      const x = p % w;
+      const y = (p - x) / w;
+      if (x > 0) { const q = p - 1; if (alpha[q] && label[q] === -1) { label[q] = cur; stack[sp++] = q; } }
+      if (x < w - 1) { const q = p + 1; if (alpha[q] && label[q] === -1) { label[q] = cur; stack[sp++] = q; } }
+      if (y > 0) { const q = p - w; if (alpha[q] && label[q] === -1) { label[q] = cur; stack[sp++] = q; } }
+      if (y < h - 1) { const q = p + w; if (alpha[q] && label[q] === -1) { label[q] = cur; stack[sp++] = q; } }
+    }
+    if (size > bestSize) { bestSize = size; bestLabel = cur; }
+    cur++;
+  }
+  return { label, bestLabel };
+}
+
+/** Composite a transparent PNG onto white with crisp edges, keeping only the main garment. */
 async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
@@ -78,31 +111,47 @@ async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
     img.src = transparentDataUrl;
   });
 
-  // Threshold pass: convert semi-transparent fringe to hard edges
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
   const mask = document.createElement("canvas");
-  mask.width = img.naturalWidth;
-  mask.height = img.naturalHeight;
+  mask.width = w;
+  mask.height = h;
   const mctx = mask.getContext("2d")!;
   mctx.drawImage(img, 0, 0);
-  const imageData = mctx.getImageData(0, 0, mask.width, mask.height);
+
+  const imageData = mctx.getImageData(0, 0, w, h);
   const d = imageData.data;
-  for (let i = 3; i < d.length; i += 4) {
-    d[i] = d[i] > 20 ? 255 : 0;
+  const n = w * h;
+
+  // Threshold alpha to binary → crisp edges, no semi-transparent fringe
+  const alpha = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const a = d[i * 4 + 3] > 30 ? 1 : 0;
+    alpha[i] = a;
+    d[i * 4 + 3] = a ? 255 : 0;
+  }
+
+  // Strip stray pieces: keep only the largest connected region
+  const { label, bestLabel } = keepLargestComponent(alpha, w, h);
+  if (bestLabel >= 0) {
+    for (let i = 0; i < n; i++) {
+      if (label[i] !== bestLabel) d[i * 4 + 3] = 0;
+    }
   }
   mctx.putImageData(imageData, 0, 0);
 
-  // Composite thresholded garment onto white background
+  // Composite cleaned garment onto white background
   const out = document.createElement("canvas");
-  out.width = mask.width;
-  out.height = mask.height;
+  out.width = w;
+  out.height = h;
   const octx = out.getContext("2d")!;
   octx.fillStyle = "#ffffff";
-  octx.fillRect(0, 0, out.width, out.height);
+  octx.fillRect(0, 0, w, h);
   octx.filter = "contrast(1.05) saturate(1.08)";
   octx.drawImage(mask, 0, 0);
   octx.filter = "none";
 
-  return out.toDataURL("image/png"); // PNG for artefact-free white background
+  return out.toDataURL("image/png"); // PNG → artefact-free white background
 }
 
 /** Send photo to server for dewrinkling + background removal. Falls back to original on error. */
@@ -151,7 +200,7 @@ export default function PhotoInput({
           if (!file) return;
           setLoading(true);
           try {
-            const dataUrl = await fileToDataUrl(file); // resize + auto-rotate
+            const dataUrl = await fileToDataUrl(file); // EXIF-correct, auto-rotated, resized
             onChange(dataUrl); // show preview immediately
             setLoading(false);
 

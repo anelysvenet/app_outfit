@@ -39,9 +39,9 @@ export async function POST(req: Request) {
       const fluxRes = await falPost("fal-ai/flux/dev/image-to-image", {
         image_url: imageUrl,
         prompt:
-          "smooth fabric clothing product photography, wrinkle-free textile, flat crisp fabric, professional fashion catalog, clean studio lighting, commercial clothing shoot",
-        strength: 0.25,
-        num_inference_steps: 20,
+          "the exact same clothing item, perfectly smooth and ironed fabric, completely wrinkle-free, flat even textile surface, no creases, no folds, pristine steamed garment, professional fashion e-commerce product photography, studio lighting, sharp detail, same color and same shape",
+        strength: 0.42,
+        num_inference_steps: 30,
         guidance_scale: 3.5,
         seed: 42,
       });
