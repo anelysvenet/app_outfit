@@ -8,34 +8,6 @@ import { SwapIcon } from "./icons";
 import { useT } from "@/contexts/LanguageContext";
 import type { Category, Garment, Outfit } from "@/lib/types";
 
-// Editorial collage layout (like a magazine flat-lay): main pieces as tall
-// columns, accessories placed in category-specific corners with light overlaps.
-const MAIN_CATS = ["veste", "robe", "haut", "bas"];
-const MAIN_ORDER: Record<string, number> = { veste: 0, robe: 1, haut: 2, bas: 3 };
-// Per-category vertical metrics so a top sits higher/shorter, coat/pants tall.
-const MAIN_V: Record<string, { top: number; h: number }> = {
-  veste: { top: 8, h: 76 },
-  robe: { top: 8, h: 82 },
-  haut: { top: 14, h: 46 },
-  bas: { top: 16, h: 76 },
-};
-const ACCENT_SLOTS: Record<string, { left: number; top: number; w: number; h: number }> = {
-  chaussures: { left: 4, top: 75, w: 30, h: 22 }, // bottom-left
-  sac: { left: 33, top: 56, w: 30, h: 30 }, // centre-low
-  sacoche: { left: 33, top: 56, w: 30, h: 30 },
-  lunettes: { left: 71, top: 1, w: 27, h: 15 }, // top-right
-  bijoux: { left: 74, top: 16, w: 22, h: 14 }, // top-right lower
-  ceinture: { left: 75, top: 34, w: 22, h: 12 },
-  chapeau: { left: 2, top: 1, w: 24, h: 15 }, // top-left
-  foulard: { left: 40, top: 0, w: 22, h: 14 },
-  accessoire: { left: 45, top: 38, w: 20, h: 15 },
-};
-const ACCENT_FALLBACK = [
-  { left: 40, top: 0, w: 22, h: 14 },
-  { left: 45, top: 38, w: 20, h: 15 },
-  { left: 2, top: 1, w: 24, h: 15 },
-];
-
 /** Loads an image (CORS-safe for remote URLs) for canvas processing. */
 function loadImg(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -152,51 +124,6 @@ export default function OutfitCard({
     .map((it) => ({ role: it.role, garment: garments.find((g) => g.id === it.garmentId) }))
     .filter((it): it is { role: string; garment: Garment } => Boolean(it.garment));
 
-  // Build the collage placement for each item (mains as columns, accents in corners)
-  type Placement = { it: (typeof items)[number]; style: React.CSSProperties };
-  const placements: Placement[] = [];
-  {
-    const mains = items
-      .filter((it) => MAIN_CATS.includes(it.garment.category))
-      .sort(
-        (a, b) =>
-          (MAIN_ORDER[a.garment.category] ?? 9) - (MAIN_ORDER[b.garment.category] ?? 9),
-      );
-    const accents = items.filter((it) => !MAIN_CATS.includes(it.garment.category));
-    const m = mains.length;
-    const mw = m <= 1 ? 56 : m === 2 ? 48 : 40;
-    mains.forEach((it, i) => {
-      const left = m <= 1 ? (100 - mw) / 2 : (i * (100 - mw)) / (m - 1);
-      const v = MAIN_V[it.garment.category] ?? { top: 10, h: 74 };
-      placements.push({
-        it,
-        style: {
-          left: `${left}%`,
-          top: `${v.top}%`,
-          width: `${mw}%`,
-          height: `${v.h}%`,
-          zIndex: 2 + i,
-        },
-      });
-    });
-    let fb = 0;
-    accents.forEach((it) => {
-      const s =
-        ACCENT_SLOTS[it.garment.category] ??
-        ACCENT_FALLBACK[fb++ % ACCENT_FALLBACK.length];
-      placements.push({
-        it,
-        style: {
-          left: `${s.left}%`,
-          top: `${s.top}%`,
-          width: `${s.w}%`,
-          height: `${s.h}%`,
-          zIndex: 14,
-        },
-      });
-    });
-  }
-
   async function rate(n: number) {
     setRating(n);
     await fetch(`/api/outfits/${outfit.id}`, {
@@ -255,43 +182,43 @@ export default function OutfitCard({
         </div>
         <h3 className="font-display text-3xl italic">{outfit.title}</h3>
 
-        {/* Collage éditorial — pièces superposées sur fond crème (blanc fondu) */}
-        <div className="mt-6 rounded-2xl bg-[#f3ece2] p-3">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, delay: index * 0.1 }}
-            className="relative mx-auto aspect-[4/5] w-full max-w-md"
-          >
-            {placements.map(({ it, style }, i) => (
-              <button
-                key={it.garment.id + i}
+        {/* Flat-lay — pièces détourées sur fond beige */}
+        <div className="mt-6 rounded-2xl bg-[#f3ece2] p-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {items.map(({ role, garment }, i) => (
+              <motion.button
+                key={garment.id + i}
                 type="button"
                 disabled={!swapEnabled}
                 onClick={() =>
-                  swapEnabled &&
-                  setPicker({ oldId: it.garment.id, category: it.garment.category })
+                  swapEnabled && setPicker({ oldId: garment.id, category: garment.category })
                 }
-                style={style}
-                className={`group absolute flex items-center justify-center ${
-                  swapEnabled ? "cursor-pointer" : "cursor-default"
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.1 + 0.12 + i * 0.06 }}
+                className={`group relative rounded-xl p-2 text-left transition ${
+                  swapEnabled ? "cursor-pointer hover:bg-black/[0.04]" : "cursor-default"
                 }`}
               >
-                <CutoutImage
-                  src={it.garment.photo}
-                  alt={it.garment.name}
-                  className="max-h-full max-w-full object-contain drop-shadow-[0_4px_10px_rgba(60,40,30,0.12)] transition duration-300 group-hover:scale-[1.04]"
-                />
+                <div className="flex aspect-square items-center justify-center">
+                  <CutoutImage
+                    src={garment.photo}
+                    alt={garment.name}
+                    className="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <p className="mt-1 text-[9px] uppercase tracking-wider text-smoke">{role}</p>
+                <p className="truncate text-xs text-ink/80">{garment.name}</p>
                 {swapEnabled && (
-                  <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-night/75 text-ivory opacity-0 shadow transition group-hover:opacity-100">
-                    <SwapIcon className="h-3 w-3" />
+                  <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-night/75 text-ivory opacity-0 shadow transition group-hover:opacity-100">
+                    <SwapIcon className="h-3.5 w-3.5" />
                   </span>
                 )}
-              </button>
+              </motion.button>
             ))}
-          </motion.div>
+          </div>
           {swapEnabled && (
-            <p className="mt-1 text-center text-[11px] text-smoke">{t("outfit.tap_to_swap")}</p>
+            <p className="mt-2 text-center text-[11px] text-smoke">{t("outfit.tap_to_swap")}</p>
           )}
         </div>
 
