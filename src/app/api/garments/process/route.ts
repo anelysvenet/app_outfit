@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { parseDataUrl, saveImage } from "@/lib/storage";
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
@@ -22,25 +22,25 @@ export async function POST(req: Request) {
     const { base64, mediaType } = parseDataUrl(photoDataUrl);
     const imageUrl = await saveImage(base64, mediaType);
 
-    // Background removal — isnet-general-use preserves clothing edges (sleeves, hems) better
-    const falRes = await fetch("https://fal.run/fal-ai/imageutils/rembg", {
+    // BiRefNet "General Use (Heavy)" — largest/most accurate model, best for clothing edges
+    const falRes = await fetch("https://fal.run/fal-ai/birefnet", {
       method: "POST",
       headers: {
         Authorization: `Key ${process.env.FAL_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ image_url: imageUrl, model: "isnet-general-use" }),
+      body: JSON.stringify({ image_url: imageUrl, model: "General Use (Heavy)" }),
     });
 
     if (!falRes.ok) {
-      console.error("[rembg] error:", falRes.status, await falRes.text().catch(() => ""));
+      console.error("[birefnet] error:", falRes.status, await falRes.text().catch(() => ""));
       return NextResponse.json({ skipped: true });
     }
 
     const falData = await falRes.json();
     const resultUrl: string | undefined = falData?.image?.url ?? falData?.images?.[0]?.url;
     if (!resultUrl) {
-      console.error("[rembg] no image in response:", JSON.stringify(falData));
+      console.error("[birefnet] no image in response:", JSON.stringify(falData));
       return NextResponse.json({ skipped: true });
     }
 

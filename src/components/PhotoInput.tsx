@@ -29,7 +29,7 @@ async function fileToDataUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.88);
 }
 
-/** Composite a transparent PNG onto a white background and apply subtle enhancement. */
+/** Composite a transparent PNG onto a white background with clean, crisp edges. */
 async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
@@ -43,22 +43,37 @@ async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
   canvas.height = img.naturalHeight;
   const ctx = canvas.getContext("2d")!;
 
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Subtle contrast + saturation boost for a cleaner product-photo look
-  ctx.filter = "contrast(1.06) saturate(1.1)";
+  // Draw garment with subtle enhancement, then threshold alpha for crisp edges
   ctx.drawImage(img, 0, 0);
-  ctx.filter = "none";
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imageData.data;
+  for (let i = 3; i < d.length; i += 4) {
+    // Hard threshold: fully opaque or fully transparent — eliminates semi-transparent fringe
+    d[i] = d[i] > 20 ? 255 : 0;
+  }
+  ctx.putImageData(imageData, 0, 0);
 
-  return canvas.toDataURL("image/jpeg", 0.92);
+  // White canvas — composite the thresholded garment on top
+  const out = document.createElement("canvas");
+  out.width = canvas.width;
+  out.height = canvas.height;
+  const octx = out.getContext("2d")!;
+  octx.fillStyle = "#ffffff";
+  octx.fillRect(0, 0, out.width, out.height);
+  octx.filter = "contrast(1.05) saturate(1.08)";
+  octx.drawImage(canvas, 0, 0);
+  octx.filter = "none";
+
+  // PNG for crisp, artefact-free white background
+  return out.toDataURL("image/png");
 }
 
 /**
- * Add a neutral padding around the image so the garment never touches the frame edges.
- * Background-removal models clip at boundaries — padding prevents sleeves/hems being cut.
+ * Add a contrasting border around the image before sending to the background-removal API.
+ * Garment edges (sleeves, hems) must never touch the frame — the API clips at boundaries.
+ * The dark blue-grey colour contrasts with virtually all clothing colours.
  */
-async function padImage(dataUrl: string, pct = 0.08): Promise<string> {
+async function padImage(dataUrl: string, pct = 0.12): Promise<string> {
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();
@@ -71,10 +86,10 @@ async function padImage(dataUrl: string, pct = 0.08): Promise<string> {
   canvas.width = img.naturalWidth + px * 2;
   canvas.height = img.naturalHeight + py * 2;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#f5f5f5";
+  ctx.fillStyle = "#2d3a4a"; // dark blue-grey — won't blend with clothing
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, px, py);
-  return canvas.toDataURL("image/jpeg", 0.88);
+  return canvas.toDataURL("image/jpeg", 0.90);
 }
 
 /** Send photo to server for AI background removal; returns processed data URL or original on error. */
