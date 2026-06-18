@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useT } from "@/contexts/LanguageContext";
+import PhotoEditor from "./PhotoEditor";
+import { CropIcon } from "./icons";
 
 /**
  * Decode a file with EXIF orientation already applied (consistent across browsers)
@@ -234,6 +236,7 @@ export default function PhotoInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   return (
     <div>
@@ -293,7 +296,35 @@ export default function PhotoInput({
             </span>
           </span>
         )}
+
+        {/* Crop / rotate button — bottom-right of the photo */}
+        {value && !processing && (
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={t("form.edit_photo")}
+            title={t("form.edit_photo")}
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing(true);
+            }}
+            className="absolute bottom-2.5 right-2.5 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-night/70 text-ivory shadow-lg backdrop-blur-sm transition hover:bg-night hover:scale-105 cursor-pointer"
+          >
+            <CropIcon className="h-4 w-4" />
+          </span>
+        )}
       </button>
+
+      {editing && value && (
+        <PhotoEditor
+          src={value}
+          onClose={() => setEditing(false)}
+          onApply={(edited) => {
+            onChange(edited);
+            setEditing(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -74,6 +74,33 @@ export function SettingsIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function CropIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+      <path d="M2 6h14a2 2 0 0 1 2 2v14" />
+    </svg>
+  );
+}
+
+export function RotateCwIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <polyline points="21 4 21 10 15 10" />
+      <path d="M18.5 14a8 8 0 1 1-1.9-8.3L21 10" />
+    </svg>
+  );
+}
+
+export function RotateCcwIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <polyline points="3 4 3 10 9 10" />
+      <path d="M5.5 14a8 8 0 1 0 1.9-8.3L3 10" />
+    </svg>
+  );
+}
+
 export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

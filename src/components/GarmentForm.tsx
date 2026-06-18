@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import PhotoInput from "./PhotoInput";
 import { useT } from "@/contexts/LanguageContext";
 import {
@@ -97,6 +97,7 @@ export default function GarmentForm({
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   const set = <K extends keyof GarmentDraft>(key: K, value: GarmentDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -138,6 +139,10 @@ export default function GarmentForm({
         evening: a.eveningSuitable ?? d.evening,
         description: a.description ?? d.description,
       }));
+      // Scroll to the filled-in details so the user sees the analysis worked
+      requestAnimationFrame(() => {
+        detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analyse impossible");
     } finally {
@@ -198,7 +203,7 @@ export default function GarmentForm({
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4" ref={detailRef}>
         <input
           className="field"
           placeholder={t("form.name_placeholder")}
