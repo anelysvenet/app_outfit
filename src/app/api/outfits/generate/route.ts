@@ -15,10 +15,14 @@ export async function POST(req: Request) {
       occasion?: string;
       evening?: boolean;
       weather?: WeatherSnapshot | null;
+      baseGarmentId?: string;
     };
 
     const db = await readDb();
     const wardrobe = db.garments.filter((g) => g.userId === user.id && !g.deleted);
+    const baseGarment = body.baseGarmentId
+      ? wardrobe.find((g) => g.id === body.baseGarmentId)
+      : undefined;
     const ratedOutfits = db.outfits.filter(
       (o) => o.userId === user.id && typeof o.rating === "number",
     );
@@ -50,6 +54,7 @@ export async function POST(req: Request) {
       evening: Boolean(body.evening),
       ratedOutfits,
       styleRefs,
+      baseGarment,
       lang: user.language,
     });
 

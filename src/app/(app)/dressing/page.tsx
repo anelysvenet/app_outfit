@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import Modal from "@/components/Modal";
 import GarmentForm from "@/components/GarmentForm";
@@ -129,6 +130,14 @@ export default function DressingPage() {
                   <p className="mt-1 text-xs text-smoke">
                     {[g.colors.join(", "), g.material].filter(Boolean).join(" — ")}
                   </p>
+                  <Link
+                    href={`/generer?base=${g.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-3 flex items-center justify-center gap-1.5 rounded-full bg-ink py-2 text-xs font-medium text-ivory transition hover:bg-night"
+                  >
+                    <span className="text-champagne">✦</span>
+                    {t("dressing.build_outfit")}
+                  </Link>
                 </div>
               </motion.div>
             ))}

@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export default async function LandingPage() {
   const user = await getCurrentUser();
-  if (user) redirect("/dressing");
+  if (user) redirect("/accueil");
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 text-center">

@@ -58,6 +58,7 @@ function GeneratorContent() {
   const [garments, setGarments] = useState<Garment[]>([]);
   const [occasion, setOccasion] = useState<string>("Travail");
   const [evening, setEvening] = useState(searchParams.get("soiree") === "1");
+  const baseId = searchParams.get("base");
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [cityInput, setCityInput] = useState("");
@@ -141,7 +142,7 @@ function GeneratorContent() {
       const res = await fetch("/api/outfits/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ occasion, evening, weather }),
+        body: JSON.stringify({ occasion, evening, weather, baseGarmentId: baseId ?? undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? t("gen.generate_error"));
@@ -170,6 +171,8 @@ function GeneratorContent() {
     );
   }
 
+  const baseGarment = baseId ? garments.find((g) => g.id === baseId) : undefined;
+
   const wardrobeReady =
     garments.some((g) => g.category === "chaussures") &&
     (garments.some((g) => g.category === "robe") ||
@@ -186,6 +189,22 @@ function GeneratorContent() {
           t("gen.title")
         )}
       </h1>
+
+      {baseGarment && (
+        <div className="mt-5 flex items-center gap-4 rounded-2xl bg-sand/60 p-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={baseGarment.photo}
+            alt={baseGarment.name}
+            className="h-20 w-16 shrink-0 rounded-lg object-cover"
+          />
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-gold">{t("gen.around_label")}</p>
+            <p className="mt-0.5 font-medium">{baseGarment.name}</p>
+            <p className="text-xs text-smoke">{t("gen.around_sub")}</p>
+          </div>
+        </div>
+      )}
 
       {!wardrobeReady && garments.length >= 0 && (
         <div className="mt-6 rounded-2xl border border-gold/30 bg-sand/50 p-5 text-sm">

@@ -245,6 +245,7 @@ export interface GenerationContext {
   evening: boolean;
   ratedOutfits: Outfit[];
   styleRefs?: { description?: string; colors?: string[]; styles?: string[] }[];
+  baseGarment?: Garment;
   lang?: string;
 }
 
@@ -302,7 +303,11 @@ CONTEXTE :
 - ${weatherText}
 - Occasion : ${ctx.occasion}
 - Mode soirée : ${ctx.evening ? "OUI — privilégie strictement les vêtements marqués soiree:true, et ne complète avec d'autres pièces que si indispensable." : "non"}
-- Styles préférés de l'utilisateur : ${ctx.user.styles.join(", ") || "non précisés"}
+- Styles préférés de l'utilisateur : ${ctx.user.styles.join(", ") || "non précisés"}${
+    ctx.baseGarment
+      ? `\n- PIÈCE IMPOSÉE : CHAQUE tenue DOIT obligatoirement inclure ce vêtement (id: ${ctx.baseGarment.id} — ${ctx.baseGarment.type} ${ctx.baseGarment.colors.join("/")}), et être composée AUTOUR de lui. Propose différentes façons de le porter.`
+      : ""
+  }
 
 HISTORIQUE DES NOTES (1 à 5, apprends les goûts de l'utilisateur — favorise ce qui ressemble aux tenues notées 4-5, évite ce qui ressemble aux tenues notées 1-2) :
 ${tasteHistory.length ? JSON.stringify(tasteHistory, null, 1) : "Aucune note pour l'instant."}
@@ -336,10 +341,15 @@ RÈGLES DE COMPOSITION :
 
   // Valide que chaque ID existe réellement dans la garde-robe.
   const validIds = new Set(ctx.wardrobe.map((g) => g.id));
+  const base = ctx.baseGarment;
   return response.parsed_output.outfits
-    .map((o) => ({
-      ...o,
-      items: o.items.filter((it) => validIds.has(it.garmentId)),
-    }))
+    .map((o) => {
+      let items = o.items.filter((it) => validIds.has(it.garmentId));
+      // Garantit que la pièce imposée est bien présente dans chaque tenue
+      if (base && !items.some((it) => it.garmentId === base.id)) {
+        items = [{ garmentId: base.id, role: base.category }, ...items];
+      }
+      return { ...o, items };
+    })
     .filter((o) => o.items.length >= 2);
 }
