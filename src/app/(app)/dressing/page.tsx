@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Modal from "@/components/Modal";
 import GarmentForm from "@/components/GarmentForm";
@@ -14,8 +15,9 @@ import {
 import { DiscoIcon } from "@/components/icons";
 import { useT } from "@/contexts/LanguageContext";
 
-export default function DressingPage() {
+function DressingContent() {
   const t = useT();
+  const pickMode = useSearchParams().get("pick") === "1";
   const [garments, setGarments] = useState<Garment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Category | "tous">("tous");
@@ -56,6 +58,13 @@ export default function DressingPage() {
           {t("dressing.add")}
         </button>
       </div>
+
+      {pickMode && (
+        <div className="mt-5 rounded-2xl bg-sand/60 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-gold">{t("home.idea_label")}</p>
+          <p className="mt-1 text-sm text-ink">{t("home.idea_sub")}</p>
+        </div>
+      )}
 
       <div className="mt-8">
         <CategorySelect
@@ -130,14 +139,16 @@ export default function DressingPage() {
                   <p className="mt-1 text-xs text-smoke">
                     {[g.colors.join(", "), g.material].filter(Boolean).join(" — ")}
                   </p>
-                  <Link
-                    href={`/generer?base=${g.id}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-3 flex items-center justify-center gap-1.5 rounded-full bg-ink py-2 text-xs font-medium text-ivory transition hover:bg-night"
-                  >
-                    <span className="text-champagne">✦</span>
-                    {t("dressing.build_outfit")}
-                  </Link>
+                  {pickMode && (
+                    <Link
+                      href={`/generer?base=${g.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-3 flex items-center justify-center gap-1.5 rounded-full bg-ink py-2 text-xs font-medium text-ivory transition hover:bg-night"
+                    >
+                      <span className="text-champagne">✦</span>
+                      {t("dressing.build_outfit")}
+                    </Link>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -175,5 +186,13 @@ export default function DressingPage() {
         )}
       </Modal>
     </div>
+  );
+}
+
+export default function DressingPage() {
+  return (
+    <Suspense fallback={null}>
+      <DressingContent />
+    </Suspense>
   );
 }

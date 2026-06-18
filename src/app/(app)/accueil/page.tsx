@@ -134,7 +134,7 @@ export default function HomePage() {
       {/* ── Autour d'une pièce ── */}
       <motion.div variants={item} className="mt-3">
         <Link
-          href="/dressing"
+          href="/dressing?pick=1"
           className="group relative block overflow-hidden rounded-3xl bg-white p-7 shadow-card transition hover:shadow-lift"
         >
           <div className="pointer-events-none absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-gold/5 blur-2xl" />
