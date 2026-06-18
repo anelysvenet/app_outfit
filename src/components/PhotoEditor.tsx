@@ -71,8 +71,20 @@ export default function PhotoEditor({
   const drag = useRef<{ mode: string; sx: number; sy: number; orig: Rect } | null>(null);
 
   useEffect(() => {
+    let raf = 0;
+    let pending: Rect | null = null;
+
+    const flush = () => {
+      raf = 0;
+      if (pending) {
+        setRect(pending);
+        pending = null;
+      }
+    };
+
     function onMove(e: PointerEvent) {
       if (!drag.current || !imgRef.current) return;
+      e.preventDefault();
       const b = imgRef.current.getBoundingClientRect();
       const dx = (e.clientX - drag.current.sx) / b.width;
       const dy = (e.clientY - drag.current.sy) / b.height;
@@ -95,22 +107,28 @@ export default function PhotoEditor({
         }
         if (m.includes("s")) h = clamp(h + dy, MIN, 1 - y);
       }
-      setRect({ x, y, w, h });
+      // Coalesce to one state update per animation frame for smoothness
+      pending = { x, y, w, h };
+      if (!raf) raf = requestAnimationFrame(flush);
     }
     function onUp() {
       drag.current = null;
     }
-    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointermove", onMove, { passive: false });
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      if (raf) cancelAnimationFrame(raf);
     };
   }, []);
 
   function startDrag(e: React.PointerEvent, mode: string) {
     e.preventDefault();
     e.stopPropagation();
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     drag.current = { mode, sx: e.clientX, sy: e.clientY, orig: { ...rect } };
   }
 
@@ -135,11 +153,17 @@ export default function PhotoEditor({
     }
   }
 
-  const handle =
-    "absolute h-4 w-4 rounded-full border-2 border-white bg-champagne shadow";
+  // Large transparent hit area with a smaller visible dot — easy to grab on touch
+  const handleWrap =
+    "absolute flex h-9 w-9 items-center justify-center";
+  const dot =
+    "h-4 w-4 rounded-full border-2 border-white bg-champagne shadow pointer-events-none";
 
   return (
-    <div className="fixed inset-0 z-[120] flex flex-col items-center justify-center bg-night/85 p-4 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[120] flex flex-col items-center justify-center overscroll-none bg-night/85 p-4 backdrop-blur-sm"
+      style={{ touchAction: "none" }}
+    >
       <div className="relative inline-block max-h-[68vh] max-w-[88vw]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -160,6 +184,7 @@ export default function PhotoEditor({
             height: `${rect.h * 100}%`,
             boxShadow: "0 0 0 9999px rgba(20,18,16,0.55)",
             border: "1.5px solid rgba(255,255,255,0.9)",
+            touchAction: "none",
           }}
         >
           {/* thirds guides */}
@@ -169,27 +194,35 @@ export default function PhotoEditor({
             <div className="absolute top-1/3 left-0 w-full h-px bg-white/30" />
             <div className="absolute top-2/3 left-0 w-full h-px bg-white/30" />
           </div>
-          {/* corner handles */}
+          {/* corner handles — large touch targets */}
           <div
-            className={`${handle} cursor-nwse-resize`}
-            style={{ left: -8, top: -8 }}
+            className={`${handleWrap} cursor-nwse-resize`}
+            style={{ left: -18, top: -18, touchAction: "none" }}
             onPointerDown={(e) => startDrag(e, "nw")}
-          />
+          >
+            <span className={dot} />
+          </div>
           <div
-            className={`${handle} cursor-nesw-resize`}
-            style={{ right: -8, top: -8 }}
+            className={`${handleWrap} cursor-nesw-resize`}
+            style={{ right: -18, top: -18, touchAction: "none" }}
             onPointerDown={(e) => startDrag(e, "ne")}
-          />
+          >
+            <span className={dot} />
+          </div>
           <div
-            className={`${handle} cursor-nesw-resize`}
-            style={{ left: -8, bottom: -8 }}
+            className={`${handleWrap} cursor-nesw-resize`}
+            style={{ left: -18, bottom: -18, touchAction: "none" }}
             onPointerDown={(e) => startDrag(e, "sw")}
-          />
+          >
+            <span className={dot} />
+          </div>
           <div
-            className={`${handle} cursor-nwse-resize`}
-            style={{ right: -8, bottom: -8 }}
+            className={`${handleWrap} cursor-nwse-resize`}
+            style={{ right: -18, bottom: -18, touchAction: "none" }}
             onPointerDown={(e) => startDrag(e, "se")}
-          />
+          >
+            <span className={dot} />
+          </div>
         </div>
       </div>
 
