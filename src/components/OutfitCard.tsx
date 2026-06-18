@@ -8,6 +8,19 @@ import { SwapIcon } from "./icons";
 import { useT } from "@/contexts/LanguageContext";
 import type { Category, Garment, Outfit } from "@/lib/types";
 
+// Editorial collage layout — big pieces as tall overlapping panels, the rest
+// tucked into corners (top-right cluster, bottom overlaps) like a magazine flat-lay.
+const MAIN_CATS = ["veste", "robe", "haut", "bas"];
+const MAIN_ORDER: Record<string, number> = { veste: 0, robe: 1, haut: 2, bas: 3 };
+const ACCENT_SLOTS = [
+  { left: 73, top: 1, w: 26, h: 17 }, // top-right (sunglasses)
+  { left: 75, top: 20, w: 23, h: 16 }, // top-right lower (watch/jewelry)
+  { left: 2, top: 71, w: 28, h: 24 }, // bottom-left (shoes)
+  { left: 57, top: 69, w: 30, h: 26 }, // bottom-center (bag)
+  { left: 39, top: 0, w: 23, h: 15 }, // top-center small
+  { left: 78, top: 39, w: 20, h: 14 }, // mid-right small
+];
+
 export default function OutfitCard({
   outfit,
   garments,
@@ -49,6 +62,51 @@ export default function OutfitCard({
   const items = outfit.items
     .map((it) => ({ role: it.role, garment: garments.find((g) => g.id === it.garmentId) }))
     .filter((it): it is { role: string; garment: Garment } => Boolean(it.garment));
+
+  // Build the overlapping collage placement for each item
+  type Placement = { it: (typeof items)[number]; style: React.CSSProperties };
+  const placements: Placement[] = [];
+  {
+    const mains = items
+      .filter((it) => MAIN_CATS.includes(it.garment.category))
+      .sort(
+        (a, b) =>
+          (MAIN_ORDER[a.garment.category] ?? 9) - (MAIN_ORDER[b.garment.category] ?? 9),
+      );
+    const accents = items.filter((it) => !MAIN_CATS.includes(it.garment.category));
+    const m = mains.length;
+    mains.forEach((it, i) => {
+      const width = m <= 1 ? 58 : m === 2 ? 50 : 44;
+      const gap = m <= 1 ? 0 : (100 - width) / (m - 1);
+      const left = m <= 1 ? (100 - width) / 2 : i * gap;
+      const top = 7 + (i % 2) * 5;
+      placements.push({
+        it,
+        style: {
+          left: `${left}%`,
+          top: `${top}%`,
+          width: `${width}%`,
+          height: "80%",
+          zIndex: 2 + i,
+          transform: `rotate(${i % 2 ? 2 : -2}deg)`,
+        },
+      });
+    });
+    accents.forEach((it, i) => {
+      const s = ACCENT_SLOTS[i % ACCENT_SLOTS.length];
+      placements.push({
+        it,
+        style: {
+          left: `${s.left}%`,
+          top: `${s.top}%`,
+          width: `${s.w}%`,
+          height: `${s.h}%`,
+          zIndex: 12 + i,
+          transform: `rotate(${i % 2 ? 3 : -3}deg)`,
+        },
+      });
+    });
+  }
 
   async function rate(n: number) {
     setRating(n);
@@ -108,44 +166,44 @@ export default function OutfitCard({
         </div>
         <h3 className="font-display text-3xl italic">{outfit.title}</h3>
 
-        {/* Flat-lay de la tenue — fond crème, fonds blancs fondus (mix-blend) */}
-        <div className="mt-6 rounded-2xl bg-[#f3ece2] p-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {items.map(({ role, garment }, i) => (
-              <motion.button
-                key={garment.id + i}
+        {/* Collage éditorial — pièces superposées sur fond crème (blanc fondu) */}
+        <div className="mt-6 rounded-2xl bg-[#f3ece2] p-3">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: index * 0.1 }}
+            className="relative mx-auto aspect-[4/5] w-full max-w-md"
+          >
+            {placements.map(({ it, style }, i) => (
+              <button
+                key={it.garment.id + i}
                 type="button"
                 disabled={!swapEnabled}
                 onClick={() =>
-                  swapEnabled && setPicker({ oldId: garment.id, category: garment.category })
+                  swapEnabled &&
+                  setPicker({ oldId: it.garment.id, category: it.garment.category })
                 }
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.1 + 0.12 + i * 0.06 }}
-                className={`group relative rounded-xl p-2 text-left transition ${
-                  swapEnabled ? "cursor-pointer hover:bg-white/70" : "cursor-default"
+                style={style}
+                className={`group absolute flex items-center justify-center ${
+                  swapEnabled ? "cursor-pointer" : "cursor-default"
                 }`}
               >
-                <div className="flex aspect-square items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={garment.photo}
-                    alt={garment.name}
-                    className="max-h-full max-w-full object-contain mix-blend-multiply transition duration-500 group-hover:scale-105"
-                  />
-                </div>
-                <p className="mt-1 text-[9px] uppercase tracking-wider text-smoke">{role}</p>
-                <p className="truncate text-xs text-ink/80">{garment.name}</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={it.garment.photo}
+                  alt={it.garment.name}
+                  className="max-h-full max-w-full object-contain mix-blend-multiply drop-shadow-sm transition duration-300 group-hover:scale-[1.04]"
+                />
                 {swapEnabled && (
-                  <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-night/75 text-ivory opacity-0 shadow transition group-hover:opacity-100">
-                    <SwapIcon className="h-3.5 w-3.5" />
+                  <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-night/75 text-ivory opacity-0 shadow transition group-hover:opacity-100">
+                    <SwapIcon className="h-3 w-3" />
                   </span>
                 )}
-              </motion.button>
+              </button>
             ))}
-          </div>
+          </motion.div>
           {swapEnabled && (
-            <p className="mt-2 text-center text-[11px] text-smoke">{t("outfit.tap_to_swap")}</p>
+            <p className="mt-1 text-center text-[11px] text-smoke">{t("outfit.tap_to_swap")}</p>
           )}
         </div>
 
