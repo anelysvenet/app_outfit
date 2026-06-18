@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import type { Database } from "./types";
 
-const EMPTY_DB: Database = { users: [], garments: [], outfits: [] };
+const EMPTY_DB: Database = { users: [], garments: [], outfits: [], styleRefs: [] };
 
 // Vercel Postgres est désormais fourni par l'intégration native Neon, qui
 // injecte DATABASE_URL (connexion poolée). On lit aussi POSTGRES_URL en repli
@@ -47,7 +47,13 @@ export async function readDb(): Promise<Database> {
     value: Database;
   }[];
   if (!rows.length) return structuredClone(EMPTY_DB);
-  return rows[0].value;
+  // Normalise les anciennes bases qui n'ont pas encore tous les tableaux
+  const value = rows[0].value;
+  value.users ??= [];
+  value.garments ??= [];
+  value.outfits ??= [];
+  value.styleRefs ??= [];
+  return value;
 }
 
 export async function writeDb(database: Database): Promise<void> {

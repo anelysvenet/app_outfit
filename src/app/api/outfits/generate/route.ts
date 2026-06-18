@@ -22,6 +22,9 @@ export async function POST(req: Request) {
     const ratedOutfits = db.outfits.filter(
       (o) => o.userId === user.id && typeof o.rating === "number",
     );
+    const styleRefs = db.styleRefs
+      .filter((r) => r.userId === user.id)
+      .map((r) => ({ description: r.description, colors: r.colors, styles: r.styles }));
 
     const hasTopBottom =
       wardrobe.some((g) => g.category === "haut" || g.category === "veste") &&
@@ -46,6 +49,7 @@ export async function POST(req: Request) {
       occasion: body.occasion || "Casual",
       evening: Boolean(body.evening),
       ratedOutfits,
+      styleRefs,
       lang: user.language,
     });
 

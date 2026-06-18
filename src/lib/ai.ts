@@ -93,6 +93,61 @@ export async function analyzeGarmentPhoto(
 }
 
 // ---------------------------------------------------------------------------
+// Analyse d'une photo de tenue déjà portée (référence de style)
+// ---------------------------------------------------------------------------
+
+const StylePhotoSchema = z.object({
+  description: z
+    .string()
+    .describe("Description courte et élégante de la tenue et de son style, 1-2 phrases"),
+  colors: z.array(z.string()).describe("Couleurs dominantes de la tenue, max 4"),
+  styles: z
+    .array(z.string())
+    .describe(
+      "Styles parmi : Classique, Élégant, Décontracté, Urbain, Vintage, Sportswear, Streetwear, Minimaliste, Chic, Business casual",
+    ),
+});
+
+export type StylePhotoAnalysis = z.infer<typeof StylePhotoSchema>;
+
+export async function analyzeStylePhoto(
+  base64: string,
+  mediaType: string,
+  lang?: string,
+): Promise<StylePhotoAnalysis> {
+  const response = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 1024,
+    system: `You are a fashion stylist analyzing a photo of an outfit the user already wears, to learn their personal style. Be precise and concise. ${langInstruction(lang)}`,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+              data: base64,
+            },
+          },
+          {
+            type: "text",
+            text: "Describe this outfit's overall style, dominant colors and the styles it belongs to.",
+          },
+        ],
+      },
+    ],
+    output_config: { format: zodOutputFormat(StylePhotoSchema) },
+  });
+
+  if (!response.parsed_output) {
+    throw new Error("L'analyse de la tenue a échoué, réessayez.");
+  }
+  return response.parsed_output;
+}
+
+// ---------------------------------------------------------------------------
 // Détection des logos / imprimés (pour les préserver lors du défroissage)
 // ---------------------------------------------------------------------------
 
@@ -189,6 +244,7 @@ export interface GenerationContext {
   occasion: string;
   evening: boolean;
   ratedOutfits: Outfit[];
+  styleRefs?: { description?: string; colors?: string[]; styles?: string[] }[];
   lang?: string;
 }
 
@@ -250,6 +306,9 @@ CONTEXTE :
 
 HISTORIQUE DES NOTES (1 à 5, apprends les goûts de l'utilisateur — favorise ce qui ressemble aux tenues notées 4-5, évite ce qui ressemble aux tenues notées 1-2) :
 ${tasteHistory.length ? JSON.stringify(tasteHistory, null, 1) : "Aucune note pour l'instant."}
+
+TENUES DE RÉFÉRENCE DE L'UTILISATEUR (photos de tenues qu'il/elle porte déjà dans la vraie vie — inspire-toi fortement de ces associations, coupes et palettes pour rester FIDÈLE à son style personnel) :
+${ctx.styleRefs && ctx.styleRefs.length ? JSON.stringify(ctx.styleRefs, null, 1) : "Aucune photo de référence fournie."}
 
 RÈGLES DE COMPOSITION :
 1. Utilise UNIQUEMENT des vêtements présents dans la garde-robe, référencés par leur id exact.

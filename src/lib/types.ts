@@ -139,8 +139,20 @@ export interface Outfit {
   createdAt: string;
 }
 
+/** Photo d'une tenue déjà portée par l'utilisateur, utilisée comme référence de style. */
+export interface StyleRef {
+  id: string;
+  userId: string;
+  photo: string;
+  description?: string;
+  colors?: string[];
+  styles?: string[];
+  createdAt: string;
+}
+
 export interface Database {
   users: User[];
   garments: Garment[];
   outfits: Outfit[];
+  styleRefs: StyleRef[];
 }
