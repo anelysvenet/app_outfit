@@ -5,6 +5,69 @@ import { useT } from "@/contexts/LanguageContext";
 import PhotoEditor from "./PhotoEditor";
 import { CropIcon } from "./icons";
 
+type LogoBox = { x: number; y: number; w: number; h: number };
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    if (!src.startsWith("data:")) im.crossOrigin = "anonymous";
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = src;
+  });
+}
+
+/**
+ * Paste the real logo/print pixels from the original photo back over the
+ * dewrinkled garment, with feathered edges, so generative smoothing never
+ * alters logos. Uses source-atop to stay within the garment silhouette.
+ */
+async function pasteLogos(
+  mctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  originalSrc: string,
+  boxes: LogoBox[],
+) {
+  if (!boxes.length) return;
+  const orig = await loadImage(originalSrc);
+  const OW = orig.naturalWidth;
+  const OH = orig.naturalHeight;
+
+  for (const b of boxes) {
+    const dw = Math.max(1, Math.round(b.w * w));
+    const dh = Math.max(1, Math.round(b.h * h));
+    const dx = Math.round(b.x * w);
+    const dy = Math.round(b.y * h);
+
+    // Crop the original logo region
+    const fc = document.createElement("canvas");
+    fc.width = dw;
+    fc.height = dh;
+    const fctx = fc.getContext("2d")!;
+    fctx.drawImage(orig, b.x * OW, b.y * OH, b.w * OW, b.h * OH, 0, 0, dw, dh);
+
+    // Feather all four edges so the paste blends into the smoothed fabric
+    const fid = fctx.getImageData(0, 0, dw, dh);
+    const p = fid.data;
+    const fm = Math.max(2, Math.min(dw, dh) * 0.16);
+    for (let y = 0; y < dh; y++) {
+      for (let x = 0; x < dw; x++) {
+        const edge = Math.min(x, y, dw - 1 - x, dh - 1 - y);
+        const f = Math.max(0, Math.min(1, edge / fm));
+        p[(y * dw + x) * 4 + 3] *= f;
+      }
+    }
+    fctx.putImageData(fid, 0, 0);
+
+    // Draw only where the garment already exists (keeps silhouette, no bg)
+    mctx.save();
+    mctx.globalCompositeOperation = "source-atop";
+    mctx.drawImage(fc, dx, dy, dw, dh);
+    mctx.restore();
+  }
+}
+
 /**
  * Decode a file with EXIF orientation already applied (consistent across browsers)
  * and downscale. Orientation of the garment itself is corrected later, after
@@ -96,7 +159,11 @@ const TARGET_ASPECT = 3 / 4; // portrait card ratio used in the dressing grid
  * straighten it to portrait, and centre it on a portrait 3:4 white canvas so it
  * sits upright in the dressing overview.
  */
-async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
+async function compositeOnWhite(
+  transparentDataUrl: string,
+  originalSrc?: string,
+  logoBoxes?: LogoBox[],
+): Promise<string> {
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();
@@ -111,6 +178,15 @@ async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
   mask.height = h;
   const mctx = mask.getContext("2d")!;
   mctx.drawImage(img, 0, 0);
+
+  // Restore real logos over the dewrinkled fabric
+  if (originalSrc && logoBoxes && logoBoxes.length) {
+    try {
+      await pasteLogos(mctx, w, h, originalSrc, logoBoxes);
+    } catch (e) {
+      console.warn("[pasteLogos] failed:", e);
+    }
+  }
 
   const imageData = mctx.getImageData(0, 0, w, h);
   const d = imageData.data;
@@ -215,7 +291,9 @@ async function processPhoto(dataUrl: string): Promise<string> {
     if (!res.ok) return dataUrl;
     const data = await res.json();
     if (data.skipped || !data.transparentDataUrl) return dataUrl;
-    return await compositeOnWhite(data.transparentDataUrl);
+    // Pass the original padded image + detected logo boxes so the real logos
+    // are pasted back over the dewrinkled result.
+    return await compositeOnWhite(data.transparentDataUrl, padded, data.logoBoxes ?? []);
   } catch {
     return dataUrl;
   }

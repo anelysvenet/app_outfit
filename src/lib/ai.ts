@@ -93,6 +93,68 @@ export async function analyzeGarmentPhoto(
 }
 
 // ---------------------------------------------------------------------------
+// Détection des logos / imprimés (pour les préserver lors du défroissage)
+// ---------------------------------------------------------------------------
+
+const LogoDetectionSchema = z.object({
+  logos: z
+    .array(
+      z.object({
+        x: z.number().describe("Left edge of the box, as a fraction 0-1 of image width"),
+        y: z.number().describe("Top edge of the box, as a fraction 0-1 of image height"),
+        w: z.number().describe("Box width, as a fraction 0-1 of image width"),
+        h: z.number().describe("Box height, as a fraction 0-1 of image height"),
+      }),
+    )
+    .describe("Tight bounding boxes around printed logos, brand text or graphic prints. Empty if none."),
+});
+
+export type LogoBox = { x: number; y: number; w: number; h: number };
+
+export async function detectLogos(base64: string, mediaType: string): Promise<LogoBox[]> {
+  const response = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 1024,
+    system:
+      "You locate printed logos, brand marks, slogans, embroidered emblems and graphic prints on a single garment photo. Return TIGHT bounding boxes as fractions of the image (0 to 1). Ignore plain fabric, buttons, zips and seams. If there is no prominent logo/print/text, return an empty list.",
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+              data: base64,
+            },
+          },
+          {
+            type: "text",
+            text: "Detect every logo, brand text or graphic print on this garment and return their bounding boxes.",
+          },
+        ],
+      },
+    ],
+    output_config: {
+      format: zodOutputFormat(LogoDetectionSchema),
+    },
+  });
+
+  const boxes = response.parsed_output?.logos ?? [];
+  // Sanitize: clamp to [0,1], drop empty or near-full-image boxes (not real logos)
+  return boxes
+    .map((b) => ({
+      x: Math.max(0, Math.min(1, b.x)),
+      y: Math.max(0, Math.min(1, b.y)),
+      w: Math.max(0, Math.min(1, b.w)),
+      h: Math.max(0, Math.min(1, b.h)),
+    }))
+    .filter((b) => b.w > 0.02 && b.h > 0.02 && b.w < 0.95 && b.h < 0.95)
+    .slice(0, 5);
+}
+
+// ---------------------------------------------------------------------------
 // Génération de tenues complètes
 // ---------------------------------------------------------------------------
 
