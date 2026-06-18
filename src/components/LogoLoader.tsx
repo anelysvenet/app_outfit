@@ -28,9 +28,10 @@ export default function LogoLoader({
         <motion.text
           x="44"
           y="80"
-          fontFamily="Georgia, Garamond, 'Times New Roman', serif"
+          style={{ fontFamily: "var(--font-cormorant), Georgia, Garamond, serif" }}
           fontStyle="italic"
-          fontSize="92"
+          fontWeight={500}
+          fontSize="96"
           fill="#1C1917"
           textAnchor="middle"
           animate={{ opacity: [0.75, 1, 0.75] }}
