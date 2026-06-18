@@ -40,6 +40,11 @@ export async function PATCH(
       }
       if (body.evening !== undefined) g.evening = Boolean(body.evening);
       if (newPhotoUrl) g.photo = newPhotoUrl;
+      // Restore from trash
+      if ((body as { restore?: boolean }).restore) {
+        g.deleted = false;
+        g.deletedAt = undefined;
+      }
       return g;
     });
 
@@ -52,16 +57,27 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
     const { id } = await params;
+    const permanent = new URL(req.url).searchParams.get("permanent") === "1";
 
     await mutateDb((db) => {
-      db.garments = db.garments.filter((g) => !(g.id === id && g.userId === user.id));
+      if (permanent) {
+        // Hard delete — remove from the database for good
+        db.garments = db.garments.filter((g) => !(g.id === id && g.userId === user.id));
+      } else {
+        // Soft delete — move to trash so it can be restored
+        const g = db.garments.find((x) => x.id === id && x.userId === user.id);
+        if (g) {
+          g.deleted = true;
+          g.deletedAt = new Date().toISOString();
+        }
+      }
     });
 
     return NextResponse.json({ ok: true });

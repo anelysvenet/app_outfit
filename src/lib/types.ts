@@ -102,6 +102,8 @@ export interface Garment {
   brand?: string;
   description?: string;
   evening: boolean;
+  deleted?: boolean;
+  deletedAt?: string;
   createdAt: string;
 }
 

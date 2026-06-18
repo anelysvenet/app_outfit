@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { CATEGORY_LABELS, type Garment } from "@/lib/types";
 
 interface Settings {
   email: string;
@@ -229,7 +230,39 @@ export default function SettingsDrawer({
   const [currency, setCurrency] = useState(settings.currency || "EUR");
   const [langSaved, setLangSaved] = useState(false);
 
-  const toggle = (s: string) => setOpen((p) => (p === s ? null : s));
+  // Corbeille
+  const [trash, setTrash] = useState<Garment[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+
+  function toggle(s: string) {
+    if (s === "trash" && open !== "trash") loadTrash();
+    setOpen((p) => (p === s ? null : s));
+  }
+
+  async function loadTrash() {
+    setTrashLoading(true);
+    try {
+      const res = await fetch("/api/garments/trash");
+      const data = await res.json().catch(() => ({}));
+      setTrash(data.garments ?? []);
+    } finally {
+      setTrashLoading(false);
+    }
+  }
+
+  async function restoreGarment(id: string) {
+    setTrash((prev) => prev.filter((g) => g.id !== id));
+    await fetch(`/api/garments/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ restore: true }),
+    });
+  }
+
+  async function purgeGarment(id: string) {
+    setTrash((prev) => prev.filter((g) => g.id !== id));
+    await fetch(`/api/garments/${id}?permanent=1`, { method: "DELETE" });
+  }
 
   async function changeEmail() {
     setEmailMsg(null);
@@ -448,6 +481,58 @@ export default function SettingsDrawer({
             <button className={btnSm} onClick={saveLanguage}>
               {langSaved ? "✓ Enregistré" : "Enregistrer"}
             </button>
+          </Section>
+
+          {/* CORBEILLE */}
+          <Section title="Corbeille" open={open === "trash"} onToggle={() => toggle("trash")}>
+            <p className="text-xs text-smoke">
+              Les vêtements supprimés sont conservés ici. Récupérez-les ou supprimez-les définitivement.
+            </p>
+            {trashLoading ? (
+              <p className="py-4 text-center text-sm text-smoke">Chargement…</p>
+            ) : trash.length === 0 ? (
+              <p className="py-4 text-center text-sm italic text-smoke">La corbeille est vide.</p>
+            ) : (
+              <div className="space-y-3">
+                {trash.map((g) => (
+                  <div
+                    key={g.id}
+                    className="rounded-2xl bg-[#f5ede4] p-3"
+                    style={{
+                      border: "1.5px solid #DDB8A8",
+                      boxShadow: "0 0 6px #DDB8A8, 0 0 14px rgba(221,184,168,0.5)",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={g.photo}
+                        alt={g.name}
+                        className="h-16 w-12 shrink-0 rounded-lg object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{g.name}</p>
+                        <p className="text-xs text-smoke">{CATEGORY_LABELS[g.category]}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => restoreGarment(g.id)}
+                        className="flex-1 rounded-full bg-ink px-3 py-2 text-xs font-medium text-ivory transition hover:bg-night cursor-pointer"
+                      >
+                        Récupérer le vêtement
+                      </button>
+                      <button
+                        onClick={() => purgeGarment(g.id)}
+                        className="flex-1 rounded-full border border-terracotta/50 px-3 py-2 text-xs font-medium text-terracotta transition hover:bg-terracotta hover:text-ivory cursor-pointer"
+                      >
+                        Supprimer définitivement
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </Section>
 
           {/* SUPPORT */}

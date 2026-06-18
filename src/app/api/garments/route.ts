@@ -9,7 +9,7 @@ export async function GET() {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
     const garments = (await readDb())
-      .garments.filter((g) => g.userId === user.id)
+      .garments.filter((g) => g.userId === user.id && !g.deleted)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return NextResponse.json({ garments });
   } catch (e) {

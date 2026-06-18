@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     };
 
     const db = await readDb();
-    const wardrobe = db.garments.filter((g) => g.userId === user.id);
+    const wardrobe = db.garments.filter((g) => g.userId === user.id && !g.deleted);
     const ratedOutfits = db.outfits.filter(
       (o) => o.userId === user.id && typeof o.rating === "number",
     );
