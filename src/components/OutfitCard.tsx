@@ -8,18 +8,107 @@ import { SwapIcon } from "./icons";
 import { useT } from "@/contexts/LanguageContext";
 import type { Category, Garment, Outfit } from "@/lib/types";
 
-// Editorial collage layout — big pieces as tall overlapping panels, the rest
-// tucked into corners (top-right cluster, bottom overlaps) like a magazine flat-lay.
+// Editorial collage layout (like a magazine flat-lay): main pieces as tall
+// columns, accessories placed in category-specific corners with light overlaps.
 const MAIN_CATS = ["veste", "robe", "haut", "bas"];
 const MAIN_ORDER: Record<string, number> = { veste: 0, robe: 1, haut: 2, bas: 3 };
-const ACCENT_SLOTS = [
-  { left: 73, top: 1, w: 26, h: 17 }, // top-right (sunglasses)
-  { left: 75, top: 20, w: 23, h: 16 }, // top-right lower (watch/jewelry)
-  { left: 2, top: 71, w: 28, h: 24 }, // bottom-left (shoes)
-  { left: 57, top: 69, w: 30, h: 26 }, // bottom-center (bag)
-  { left: 39, top: 0, w: 23, h: 15 }, // top-center small
-  { left: 78, top: 39, w: 20, h: 14 }, // mid-right small
+// Per-category vertical metrics so a top sits higher/shorter, coat/pants tall.
+const MAIN_V: Record<string, { top: number; h: number }> = {
+  veste: { top: 8, h: 76 },
+  robe: { top: 8, h: 82 },
+  haut: { top: 14, h: 46 },
+  bas: { top: 16, h: 76 },
+};
+const ACCENT_SLOTS: Record<string, { left: number; top: number; w: number; h: number }> = {
+  chaussures: { left: 4, top: 75, w: 30, h: 22 }, // bottom-left
+  sac: { left: 33, top: 56, w: 30, h: 30 }, // centre-low
+  sacoche: { left: 33, top: 56, w: 30, h: 30 },
+  lunettes: { left: 71, top: 1, w: 27, h: 15 }, // top-right
+  bijoux: { left: 74, top: 16, w: 22, h: 14 }, // top-right lower
+  ceinture: { left: 75, top: 34, w: 22, h: 12 },
+  chapeau: { left: 2, top: 1, w: 24, h: 15 }, // top-left
+  foulard: { left: 40, top: 0, w: 22, h: 14 },
+  accessoire: { left: 45, top: 38, w: 20, h: 15 },
+};
+const ACCENT_FALLBACK = [
+  { left: 40, top: 0, w: 22, h: 14 },
+  { left: 45, top: 38, w: 20, h: 15 },
+  { left: 2, top: 1, w: 24, h: 15 },
 ];
+
+/** Loads an image (CORS-safe for remote URLs) for canvas processing. */
+function loadImg(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    if (!src.startsWith("data:")) im.crossOrigin = "anonymous";
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = src;
+  });
+}
+
+/**
+ * Renders a garment with its white studio background removed (flood-fill from
+ * the edges), so it appears truly cut out on the beige collage. Interior white
+ * (e.g. a white top) is preserved because only border-connected white is cleared.
+ */
+function CutoutImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const [out, setOut] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const img = await loadImg(src);
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const ctx = c.getContext("2d", { willReadFrequently: true })!;
+        ctx.drawImage(img, 0, 0);
+        const id = ctx.getImageData(0, 0, w, h);
+        const d = id.data;
+        const seen = new Uint8Array(w * h);
+        const stack: number[] = [];
+        const isWhite = (p: number) =>
+          d[p * 4] > 240 && d[p * 4 + 1] > 240 && d[p * 4 + 2] > 240;
+        for (let x = 0; x < w; x++) stack.push(x, (h - 1) * w + x);
+        for (let y = 0; y < h; y++) stack.push(y * w, y * w + w - 1);
+        while (stack.length) {
+          const p = stack.pop()!;
+          if (seen[p]) continue;
+          seen[p] = 1;
+          if (!isWhite(p)) continue;
+          d[p * 4 + 3] = 0;
+          const x = p % w;
+          const y = (p - x) / w;
+          if (x > 0) stack.push(p - 1);
+          if (x < w - 1) stack.push(p + 1);
+          if (y > 0) stack.push(p - w);
+          if (y < h - 1) stack.push(p + w);
+        }
+        ctx.putImageData(id, 0, 0);
+        if (!cancelled) setOut(c.toDataURL("image/png"));
+      } catch {
+        if (!cancelled) setOut(src);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={out ?? src} alt={alt} className={className} />;
+}
 
 export default function OutfitCard({
   outfit,
@@ -63,7 +152,7 @@ export default function OutfitCard({
     .map((it) => ({ role: it.role, garment: garments.find((g) => g.id === it.garmentId) }))
     .filter((it): it is { role: string; garment: Garment } => Boolean(it.garment));
 
-  // Build the overlapping collage placement for each item
+  // Build the collage placement for each item (mains as columns, accents in corners)
   type Placement = { it: (typeof items)[number]; style: React.CSSProperties };
   const placements: Placement[] = [];
   {
@@ -75,25 +164,26 @@ export default function OutfitCard({
       );
     const accents = items.filter((it) => !MAIN_CATS.includes(it.garment.category));
     const m = mains.length;
+    const mw = m <= 1 ? 56 : m === 2 ? 48 : 40;
     mains.forEach((it, i) => {
-      const width = m <= 1 ? 58 : m === 2 ? 50 : 44;
-      const gap = m <= 1 ? 0 : (100 - width) / (m - 1);
-      const left = m <= 1 ? (100 - width) / 2 : i * gap;
-      const top = 7 + (i % 2) * 5;
+      const left = m <= 1 ? (100 - mw) / 2 : (i * (100 - mw)) / (m - 1);
+      const v = MAIN_V[it.garment.category] ?? { top: 10, h: 74 };
       placements.push({
         it,
         style: {
           left: `${left}%`,
-          top: `${top}%`,
-          width: `${width}%`,
-          height: "80%",
+          top: `${v.top}%`,
+          width: `${mw}%`,
+          height: `${v.h}%`,
           zIndex: 2 + i,
-          transform: `rotate(${i % 2 ? 2 : -2}deg)`,
         },
       });
     });
-    accents.forEach((it, i) => {
-      const s = ACCENT_SLOTS[i % ACCENT_SLOTS.length];
+    let fb = 0;
+    accents.forEach((it) => {
+      const s =
+        ACCENT_SLOTS[it.garment.category] ??
+        ACCENT_FALLBACK[fb++ % ACCENT_FALLBACK.length];
       placements.push({
         it,
         style: {
@@ -101,8 +191,7 @@ export default function OutfitCard({
           top: `${s.top}%`,
           width: `${s.w}%`,
           height: `${s.h}%`,
-          zIndex: 12 + i,
-          transform: `rotate(${i % 2 ? 3 : -3}deg)`,
+          zIndex: 14,
         },
       });
     });
@@ -188,11 +277,10 @@ export default function OutfitCard({
                   swapEnabled ? "cursor-pointer" : "cursor-default"
                 }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <CutoutImage
                   src={it.garment.photo}
                   alt={it.garment.name}
-                  className="max-h-full max-w-full object-contain mix-blend-multiply drop-shadow-sm transition duration-300 group-hover:scale-[1.04]"
+                  className="max-h-full max-w-full object-contain drop-shadow-[0_4px_10px_rgba(60,40,30,0.12)] transition duration-300 group-hover:scale-[1.04]"
                 />
                 {swapEnabled && (
                   <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-night/75 text-ivory opacity-0 shadow transition group-hover:opacity-100">

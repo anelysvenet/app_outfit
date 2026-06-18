@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { SparklesIcon, DiscoIcon, HangerIcon } from "@/components/icons";
-import YourLooks from "@/components/YourLooks";
 import type { Garment, Outfit } from "@/lib/types";
 import { useT } from "@/contexts/LanguageContext";
 
@@ -130,11 +129,6 @@ export default function HomePage() {
             <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>
         </Link>
-      </motion.div>
-
-      {/* ── Tenues par vous ── */}
-      <motion.div variants={item} className="mt-10">
-        <YourLooks />
       </motion.div>
 
       {/* ── Dernières tenues ── */}

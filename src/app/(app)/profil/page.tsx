@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import PhotoInput from "@/components/PhotoInput";
+import YourLooks from "@/components/YourLooks";
 import { STYLES } from "@/lib/types";
 import { SettingsIcon } from "@/components/icons";
 import SettingsDrawer from "@/components/SettingsDrawer";
@@ -165,6 +166,11 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Tenues par vous */}
+      <section className="mt-12 border-t border-ink/8 pt-10">
+        <YourLooks />
+      </section>
     </div>
 
     <AnimatePresence>
