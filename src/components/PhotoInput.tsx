@@ -54,13 +54,38 @@ async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.92);
 }
 
+/**
+ * Add a neutral padding around the image so the garment never touches the frame edges.
+ * Background-removal models clip at boundaries — padding prevents sleeves/hems being cut.
+ */
+async function padImage(dataUrl: string, pct = 0.08): Promise<string> {
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+  const px = Math.round(img.naturalWidth * pct);
+  const py = Math.round(img.naturalHeight * pct);
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth + px * 2;
+  canvas.height = img.naturalHeight + py * 2;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#f5f5f5";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, px, py);
+  return canvas.toDataURL("image/jpeg", 0.88);
+}
+
 /** Send photo to server for AI background removal; returns processed data URL or original on error. */
 async function removeBackground(dataUrl: string): Promise<string> {
   try {
+    // Pad the image so garment edges (sleeves, hems) never touch the frame
+    const padded = await padImage(dataUrl);
     const res = await fetch("/api/garments/process", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photoDataUrl: dataUrl }),
+      body: JSON.stringify({ photoDataUrl: padded }),
     });
     if (!res.ok) return dataUrl;
     const data = await res.json();

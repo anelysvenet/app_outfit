@@ -22,25 +22,25 @@ export async function POST(req: Request) {
     const { base64, mediaType } = parseDataUrl(photoDataUrl);
     const imageUrl = await saveImage(base64, mediaType);
 
-    // Background removal via fal.ai birefnet (high quality for clothing)
-    const falRes = await fetch("https://fal.run/fal-ai/birefnet", {
+    // Background removal — isnet-general-use preserves clothing edges (sleeves, hems) better
+    const falRes = await fetch("https://fal.run/fal-ai/imageutils/rembg", {
       method: "POST",
       headers: {
         Authorization: `Key ${process.env.FAL_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ image_url: imageUrl }),
+      body: JSON.stringify({ image_url: imageUrl, model: "isnet-general-use" }),
     });
 
     if (!falRes.ok) {
-      console.error("[birefnet] error:", falRes.status, await falRes.text().catch(() => ""));
+      console.error("[rembg] error:", falRes.status, await falRes.text().catch(() => ""));
       return NextResponse.json({ skipped: true });
     }
 
     const falData = await falRes.json();
     const resultUrl: string | undefined = falData?.image?.url ?? falData?.images?.[0]?.url;
     if (!resultUrl) {
-      console.error("[birefnet] no image in response:", JSON.stringify(falData));
+      console.error("[rembg] no image in response:", JSON.stringify(falData));
       return NextResponse.json({ skipped: true });
     }
 
