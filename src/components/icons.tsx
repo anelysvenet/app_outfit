@@ -101,6 +101,17 @@ export function RotateCcwIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function SwapIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M16 3l4 4-4 4" />
+      <path d="M20 7H4" />
+      <path d="M8 21l-4-4 4-4" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
 export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

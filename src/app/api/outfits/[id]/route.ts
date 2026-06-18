@@ -10,13 +10,29 @@ export async function PATCH(
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
     const { id } = await params;
-    const body = (await req.json()) as { rating?: number };
+    const body = (await req.json()) as {
+      rating?: number;
+      items?: { garmentId: string; role: string }[];
+    };
 
     const updated = await mutateDb((db) => {
       const o = db.outfits.find((x) => x.id === id && x.userId === user.id);
       if (!o) return null;
       if (typeof body.rating === "number") {
         o.rating = Math.max(1, Math.min(5, Math.round(body.rating)));
+      }
+      // Swap garments — validate every id belongs to the user's wardrobe
+      if (Array.isArray(body.items)) {
+        const ownIds = new Set(
+          db.garments.filter((g) => g.userId === user.id).map((g) => g.id),
+        );
+        const items = body.items
+          .filter((it) => it && typeof it.garmentId === "string" && ownIds.has(it.garmentId))
+          .map((it) => ({ garmentId: it.garmentId, role: String(it.role ?? "") }));
+        if (items.length) {
+          o.items = items;
+          o.tryOnImage = undefined; // composition changed → stale try-on
+        }
       }
       return o;
     });

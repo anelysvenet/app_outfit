@@ -10,10 +10,12 @@ export default function OutfitSwiper({
   outfits,
   garments,
   userPhoto,
+  onSwap,
 }: {
   outfits: Outfit[];
   garments: Garment[];
   userPhoto?: string | null;
+  onSwap?: (outfitId: string, oldGarmentId: string, next: Garment) => void;
 }) {
   const t = useT();
   const [index, setIndex] = useState(0);
@@ -63,12 +65,7 @@ export default function OutfitSwiper({
             className="pointer-events-none absolute inset-0 scale-[0.95] translate-y-3 opacity-50"
             aria-hidden
           >
-            <OutfitCard
-              outfit={peek}
-              garments={garments}
-              userPhoto={userPhoto}
-              piecesWrap
-            />
+            <OutfitCard outfit={peek} garments={garments} userPhoto={userPhoto} />
           </div>
         )}
 
@@ -110,7 +107,10 @@ export default function OutfitSwiper({
               outfit={current}
               garments={garments}
               userPhoto={userPhoto}
-              piecesWrap
+              wardrobe={garments}
+              onSwap={
+                onSwap ? (oldId, next) => onSwap(current.id, oldId, next) : undefined
+              }
             />
           </motion.div>
         </motion.div>

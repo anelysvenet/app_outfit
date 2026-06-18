@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import OutfitSwiper from "@/components/OutfitSwiper";
+import LogoLoader from "@/components/LogoLoader";
 import { useT } from "@/contexts/LanguageContext";
 import {
   OCCASIONS,
@@ -152,6 +153,23 @@ function GeneratorContent() {
     }
   }
 
+  function swapItem(outfitId: string, oldGarmentId: string, next: Garment) {
+    setResults((prev) =>
+      prev.map((o) => {
+        if (o.id !== outfitId) return o;
+        const items = o.items.map((it) =>
+          it.garmentId === oldGarmentId ? { garmentId: next.id, role: it.role } : it,
+        );
+        fetch(`/api/outfits/${o.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
+        return { ...o, items, tryOnImage: undefined };
+      }),
+    );
+  }
+
   const wardrobeReady =
     garments.some((g) => g.category === "chaussures") &&
     (garments.some((g) => g.category === "robe") ||
@@ -293,13 +311,13 @@ function GeneratorContent() {
                 : t("gen.compose")}
             </button>
             {generating && (
-              <motion.p
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="mt-3 text-center text-sm text-smoke"
+                className="mt-5"
               >
-                {t("gen.analyzing")}
-              </motion.p>
+                <LogoLoader label={t("gen.analyzing")} />
+              </motion.div>
             )}
             {error && <p className="mt-3 text-sm text-terracotta">{error}</p>}
           </section>
@@ -345,6 +363,7 @@ function GeneratorContent() {
                 outfits={results}
                 garments={garments}
                 userPhoto={me?.photo}
+                onSwap={swapItem}
               />
             </div>
           </motion.section>

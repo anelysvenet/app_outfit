@@ -138,6 +138,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     "outfit.lookbook_fallback": "Essayage réaliste indisponible — voici votre lookbook.",
     "outfit.pieces": "pièces",
     "outfit.evening_badge": "Soirée",
+    "outfit.tap_to_swap": "Touchez une pièce pour la remplacer",
+    "outfit.choose": "Choisir",
+    "outfit.no_alternative": "Aucun autre vêtement dans cette catégorie.",
     // Tenues page
     "outfits.label": "Historique",
     "outfits.title": "Mes tenues",
@@ -321,6 +324,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     "outfit.lookbook_fallback": "Realistic try-on unavailable — here is your lookbook.",
     "outfit.pieces": "pieces",
     "outfit.evening_badge": "Evening",
+    "outfit.tap_to_swap": "Tap a piece to replace it",
+    "outfit.choose": "Choose",
+    "outfit.no_alternative": "No other garment in this category.",
     // Tenues page
     "outfits.label": "History",
     "outfits.title": "My outfits",
@@ -504,6 +510,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     "outfit.lookbook_fallback": "Prueba realista no disponible — aquí tienes tu lookbook.",
     "outfit.pieces": "prendas",
     "outfit.evening_badge": "Noche",
+    "outfit.tap_to_swap": "Toca una prenda para reemplazarla",
+    "outfit.choose": "Elegir",
+    "outfit.no_alternative": "No hay otra prenda en esta categoría.",
     // Tenues page
     "outfits.label": "Historial",
     "outfits.title": "Mis looks",
@@ -687,6 +696,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     "outfit.lookbook_fallback": "Prova realistica non disponibile — ecco il tuo lookbook.",
     "outfit.pieces": "capi",
     "outfit.evening_badge": "Sera",
+    "outfit.tap_to_swap": "Tocca un capo per sostituirlo",
+    "outfit.choose": "Scegli",
+    "outfit.no_alternative": "Nessun altro capo in questa categoria.",
     // Tenues page
     "outfits.label": "Cronologia",
     "outfits.title": "I miei outfit",
@@ -870,6 +882,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     "outfit.lookbook_fallback": "Realistische Anprobe nicht verfügbar — hier ist dein Lookbook.",
     "outfit.pieces": "Teile",
     "outfit.evening_badge": "Abend",
+    "outfit.tap_to_swap": "Tippe auf ein Teil, um es zu ersetzen",
+    "outfit.choose": "Auswählen",
+    "outfit.no_alternative": "Kein anderes Teil in dieser Kategorie.",
     // Tenues page
     "outfits.label": "Verlauf",
     "outfits.title": "Meine Outfits",
@@ -1053,6 +1068,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     "outfit.lookbook_fallback": "Prova realista não disponível — aqui está o seu lookbook.",
     "outfit.pieces": "peças",
     "outfit.evening_badge": "Noite",
+    "outfit.tap_to_swap": "Toque numa peça para a substituir",
+    "outfit.choose": "Escolher",
+    "outfit.no_alternative": "Nenhuma outra peça nesta categoria.",
     // Tenues page
     "outfits.label": "Histórico",
     "outfits.title": "Os meus looks",

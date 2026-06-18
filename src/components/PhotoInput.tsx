@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useT } from "@/contexts/LanguageContext";
 import PhotoEditor from "./PhotoEditor";
+import LogoLoader from "./LogoLoader";
 import { CropIcon } from "./icons";
 
 type LogoBox = { x: number; y: number; w: number; h: number };
@@ -317,7 +318,7 @@ export default function PhotoInput({
   const [editing, setEditing] = useState(false);
 
   return (
-    <div>
+    <div className="relative">
       <input
         ref={inputRef}
         type="file"
@@ -366,15 +367,6 @@ export default function PhotoInput({
           </span>
         )}
 
-        {/* Processing overlay */}
-        {processing && (
-          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-night/55 backdrop-blur-sm">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-champagne/80 animate-pulse">
-              {t("form.processing")}
-            </span>
-          </span>
-        )}
-
         {/* Crop / rotate button — bottom-right of the photo */}
         {value && !processing && (
           <span
@@ -392,6 +384,14 @@ export default function PhotoInput({
           </span>
         )}
       </button>
+
+      {/* Processing overlay (logo animation) — sibling of the button so the
+          loader's div isn't nested inside a <button> */}
+      {processing && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-ivory/85 backdrop-blur-sm">
+          <LogoLoader size={48} label={t("form.processing")} />
+        </div>
+      )}
 
       {editing && value && (
         <PhotoEditor

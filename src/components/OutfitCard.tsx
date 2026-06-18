@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Stars from "./Stars";
+import LogoLoader from "./LogoLoader";
+import { SwapIcon } from "./icons";
 import { useT } from "@/contexts/LanguageContext";
-import type { Garment, Outfit } from "@/lib/types";
+import type { Category, Garment, Outfit } from "@/lib/types";
 
 export default function OutfitCard({
   outfit,
@@ -12,16 +14,18 @@ export default function OutfitCard({
   userPhoto,
   onRated,
   onDeleted,
+  onSwap,
+  wardrobe,
   index = 0,
-  piecesWrap = false,
 }: {
   outfit: Outfit;
   garments: Garment[];
   userPhoto?: string | null;
   onRated?: (rating: number) => void;
   onDeleted?: () => void;
+  onSwap?: (oldGarmentId: string, next: Garment) => void;
+  wardrobe?: Garment[];
   index?: number;
-  piecesWrap?: boolean;
 }) {
   const t = useT();
   const [rating, setRating] = useState(outfit.rating);
@@ -29,6 +33,18 @@ export default function OutfitCard({
   const [tryOnLoading, setTryOnLoading] = useState(false);
   const [tryOnMessage, setTryOnMessage] = useState<string | null>(null);
   const [showLookbook, setShowLookbook] = useState(false);
+  const [picker, setPicker] = useState<{ oldId: string; category: Category } | null>(null);
+
+  const swapEnabled = Boolean(onSwap && wardrobe);
+
+  const itemsKey = outfit.items.map((it) => it.garmentId).join(",");
+  // Composition changed (swap) → reset stale virtual try-on
+  useEffect(() => {
+    setTryOnImage(outfit.tryOnImage);
+    setShowLookbook(false);
+    setTryOnMessage(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey]);
 
   const items = outfit.items
     .map((it) => ({ role: it.role, garment: garments.find((g) => g.id === it.garmentId) }))
@@ -92,36 +108,45 @@ export default function OutfitCard({
         </div>
         <h3 className="font-display text-3xl italic">{outfit.title}</h3>
 
-        {/* Pièces de la tenue */}
-        <div
-          className={`mt-6 gap-3 pb-2 ${
-            piecesWrap ? "flex flex-wrap justify-center" : "flex overflow-x-auto"
-          }`}
-        >
-          {items.map(({ role, garment }, i) => (
-            <motion.figure
-              key={garment.id + i}
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.12 + 0.15 + i * 0.08 }}
-              className="w-24 shrink-0 sm:w-28"
-            >
-              <div className="aspect-[3/4] overflow-hidden rounded-xl bg-sand">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={garment.photo}
-                  alt={garment.name}
-                  className="h-full w-full object-cover transition duration-500 hover:scale-105"
-                />
-              </div>
-              <figcaption
-                className={`mt-2 text-xs ${outfit.evening ? "text-ivory/60" : "text-smoke"}`}
+        {/* Flat-lay de la tenue — fond crème, fonds blancs fondus (mix-blend) */}
+        <div className="mt-6 rounded-2xl bg-[#f3ece2] p-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {items.map(({ role, garment }, i) => (
+              <motion.button
+                key={garment.id + i}
+                type="button"
+                disabled={!swapEnabled}
+                onClick={() =>
+                  swapEnabled && setPicker({ oldId: garment.id, category: garment.category })
+                }
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.1 + 0.12 + i * 0.06 }}
+                className={`group relative rounded-xl p-2 text-left transition ${
+                  swapEnabled ? "cursor-pointer hover:bg-white/70" : "cursor-default"
+                }`}
               >
-                <span className="block font-medium capitalize">{role}</span>
-                {garment.name}
-              </figcaption>
-            </motion.figure>
-          ))}
+                <div className="flex aspect-square items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={garment.photo}
+                    alt={garment.name}
+                    className="max-h-full max-w-full object-contain mix-blend-multiply transition duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <p className="mt-1 text-[9px] uppercase tracking-wider text-smoke">{role}</p>
+                <p className="truncate text-xs text-ink/80">{garment.name}</p>
+                {swapEnabled && (
+                  <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-night/75 text-ivory opacity-0 shadow transition group-hover:opacity-100">
+                    <SwapIcon className="h-3.5 w-3.5" />
+                  </span>
+                )}
+              </motion.button>
+            ))}
+          </div>
+          {swapEnabled && (
+            <p className="mt-2 text-center text-[11px] text-smoke">{t("outfit.tap_to_swap")}</p>
+          )}
         </div>
 
         <p className={`mt-4 text-sm leading-relaxed ${outfit.evening ? "text-ivory/80" : "text-ink/80"}`}>
@@ -131,8 +156,15 @@ export default function OutfitCard({
           {outfit.tips}
         </p>
 
+        {/* Essayage virtuel — animation du logo pendant le calcul */}
+        {tryOnLoading && (
+          <div className="mt-6 rounded-2xl bg-sand/40 p-4">
+            <LogoLoader label={t("outfit.generating")} />
+          </div>
+        )}
+
         {/* Essayage virtuel */}
-        {(tryOnImage || showLookbook) && (
+        {!tryOnLoading && (tryOnImage || showLookbook) && (
           <div className="mt-6 rounded-2xl bg-sand/40 p-4">
             <p className={`mb-3 text-xs uppercase tracking-[0.2em] ${outfit.evening ? "text-champagne" : "text-gold"}`}>
               {t("outfit.virtual_try_on_label")}
@@ -211,6 +243,79 @@ export default function OutfitCard({
           </div>
         </div>
       </div>
+
+      {/* Sélecteur de remplacement — choisir un autre vêtement de la même catégorie */}
+      <AnimatePresence>
+        {picker && wardrobe && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setPicker(null)}
+            className="fixed inset-0 z-[110] flex items-end justify-center bg-night/70 p-4 backdrop-blur-sm sm:items-center"
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ type: "spring", damping: 26, stiffness: 280 }}
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-[80vh] w-full overflow-y-auto rounded-3xl bg-[#f5ede4] p-5 text-ink sm:max-w-lg"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h4 className="font-display text-xl">
+                  {t("outfit.choose")} · {t(`cat.${picker.category}`)}
+                </h4>
+                <button
+                  onClick={() => setPicker(null)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-smoke transition hover:bg-black/5 cursor-pointer"
+                  aria-label={t("form.close")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" className="h-4 w-4">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {(() => {
+                const choices = wardrobe.filter(
+                  (g) => g.category === picker.category && g.id !== picker.oldId,
+                );
+                if (choices.length === 0) {
+                  return (
+                    <p className="py-6 text-center text-sm italic text-smoke">
+                      {t("outfit.no_alternative")}
+                    </p>
+                  );
+                }
+                return (
+                  <div className="grid grid-cols-3 gap-3">
+                    {choices.map((g) => (
+                      <button
+                        key={g.id}
+                        onClick={() => {
+                          onSwap?.(picker.oldId, g);
+                          setPicker(null);
+                        }}
+                        className="group text-left cursor-pointer"
+                      >
+                        <div className="aspect-[3/4] overflow-hidden rounded-xl bg-white">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={g.photo}
+                            alt={g.name}
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          />
+                        </div>
+                        <p className="mt-1 truncate text-xs text-ink/80">{g.name}</p>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.article>
   );
 }
