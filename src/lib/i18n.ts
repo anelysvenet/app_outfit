@@ -95,6 +95,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.rotate_right": "Pivoter à droite",
     "form.apply": "Appliquer",
     "form.cancel": "Annuler",
+    "form.delete_garment": "Supprimer le vêtement",
+    "form.deleting": "Suppression…",
     // Categories
     "cat.haut": "Haut",
     "cat.bas": "Bas",
@@ -273,6 +275,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.rotate_right": "Rotate right",
     "form.apply": "Apply",
     "form.cancel": "Cancel",
+    "form.delete_garment": "Delete item",
+    "form.deleting": "Deleting…",
     // Categories
     "cat.haut": "Top",
     "cat.bas": "Bottom",
@@ -451,6 +455,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.rotate_right": "Girar a la derecha",
     "form.apply": "Aplicar",
     "form.cancel": "Cancelar",
+    "form.delete_garment": "Eliminar prenda",
+    "form.deleting": "Eliminando…",
     // Categories
     "cat.haut": "Top",
     "cat.bas": "Pantalón",
@@ -629,6 +635,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.rotate_right": "Ruota a destra",
     "form.apply": "Applica",
     "form.cancel": "Annulla",
+    "form.delete_garment": "Elimina capo",
+    "form.deleting": "Eliminazione…",
     // Categories
     "cat.haut": "Top",
     "cat.bas": "Pantaloni",
@@ -807,6 +815,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.rotate_right": "Nach rechts drehen",
     "form.apply": "Anwenden",
     "form.cancel": "Abbrechen",
+    "form.delete_garment": "Kleidungsstück löschen",
+    "form.deleting": "Wird gelöscht…",
     // Categories
     "cat.haut": "Oberteil",
     "cat.bas": "Unterteil",
@@ -985,6 +995,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.rotate_right": "Rodar à direita",
     "form.apply": "Aplicar",
     "form.cancel": "Cancelar",
+    "form.delete_garment": "Eliminar peça",
+    "form.deleting": "A eliminar…",
     // Categories
     "cat.haut": "Top",
     "cat.bas": "Parte de baixo",

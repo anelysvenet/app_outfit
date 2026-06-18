@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { mutateDb } from "@/lib/db";
+import { parseDataUrl, saveImage } from "@/lib/storage";
 import { CATEGORIES, type Category, type Garment } from "@/lib/types";
 
 export async function PATCH(
@@ -11,7 +12,14 @@ export async function PATCH(
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
     const { id } = await params;
-    const body = (await req.json()) as Partial<Garment>;
+    const body = (await req.json()) as Partial<Garment> & { photoDataUrl?: string };
+
+    // If the photo was cropped/rotated client-side, persist the new image
+    let newPhotoUrl: string | undefined;
+    if (body.photoDataUrl?.startsWith("data:")) {
+      const { base64, mediaType } = parseDataUrl(body.photoDataUrl);
+      newPhotoUrl = await saveImage(base64, mediaType);
+    }
 
     const updated = await mutateDb((db) => {
       const g = db.garments.find((x) => x.id === id && x.userId === user.id);
@@ -31,6 +39,7 @@ export async function PATCH(
         g.description = String(body.description).trim() || undefined;
       }
       if (body.evening !== undefined) g.evening = Boolean(body.evening);
+      if (newPhotoUrl) g.photo = newPhotoUrl;
       return g;
     });
 

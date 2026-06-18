@@ -158,6 +158,10 @@ export default function DressingPage() {
               setGarments((prev) => prev.map((x) => (x.id === g.id ? g : x)));
               setEditing(null);
             }}
+            onDeleted={(id) => {
+              setGarments((prev) => prev.filter((x) => x.id !== id));
+              setEditing(null);
+            }}
           />
         )}
       </Modal>

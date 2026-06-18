@@ -71,9 +71,11 @@ function emptyDraft(): GarmentDraft {
 export default function GarmentForm({
   existing,
   onSaved,
+  onDeleted,
 }: {
   existing?: Garment;
   onSaved: (garment: Garment) => void;
+  onDeleted?: (id: string) => void;
 }) {
   const t = useT();
   const [photo, setPhoto] = useState<string | null>(existing?.photo ?? null);
@@ -96,6 +98,7 @@ export default function GarmentForm({
   );
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const detailRef = useRef<HTMLDivElement>(null);
 
@@ -158,9 +161,11 @@ export default function GarmentForm({
       if (isNew && (!photo || !photo.startsWith("data:"))) {
         throw new Error(t("form.photo_required"));
       }
+      // Send the photo whenever it's a fresh data URL (new upload, or an edited
+      // crop/rotation of an existing garment) so changes persist.
       const payload = {
         ...draft,
-        ...(isNew ? { photoDataUrl: photo } : {}),
+        ...(photo?.startsWith("data:") ? { photoDataUrl: photo } : {}),
       };
       const res = await fetch(
         isNew ? "/api/garments" : `/api/garments/${existing.id}`,
@@ -179,6 +184,23 @@ export default function GarmentForm({
       setError(e instanceof Error ? e.message : "Enregistrement impossible");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function remove() {
+    if (!existing) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/garments/${existing.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Suppression impossible (erreur ${res.status})`);
+      }
+      onDeleted?.(existing.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Suppression impossible");
+      setDeleting(false);
     }
   }
 
@@ -322,6 +344,22 @@ export default function GarmentForm({
         <button className="btn-primary w-full" disabled={saving} onClick={save}>
           {saving ? t("form.saving") : existing ? t("form.update") : t("form.save")}
         </button>
+
+        {existing && onDeleted && (
+          <button
+            type="button"
+            onClick={remove}
+            disabled={deleting}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#f5ede4] px-4 py-3 text-sm font-medium text-terracotta transition hover:bg-terracotta/10 cursor-pointer disabled:opacity-60"
+            style={{
+              border: "1.5px solid #DDB8A8",
+              boxShadow: "0 0 6px #DDB8A8, 0 0 16px rgba(221,184,168,0.55)",
+            }}
+          >
+            <span className="text-xs">✕</span>
+            {deleting ? t("form.deleting") : t("form.delete_garment")}
+          </button>
+        )}
       </div>
     </div>
   );

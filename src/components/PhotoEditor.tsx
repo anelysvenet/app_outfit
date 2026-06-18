@@ -11,6 +11,9 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 function loadImg(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    // Remote images (e.g. existing garment on Vercel Blob) must be CORS-enabled,
+    // otherwise the canvas is tainted and toDataURL() throws.
+    if (!src.startsWith("data:")) img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = src;
@@ -148,6 +151,10 @@ export default function PhotoEditor({
       const isFull = rect.x === 0 && rect.y === 0 && rect.w === 1 && rect.h === 1;
       const result = isFull ? working : await cropTo(working, rect);
       onApply(result);
+    } catch (err) {
+      console.error("[PhotoEditor] apply failed:", err);
+      // Last resort: hand back whatever we currently have so the action isn't a no-op
+      onApply(working);
     } finally {
       setBusy(false);
     }
@@ -171,6 +178,7 @@ export default function PhotoEditor({
           src={working}
           alt=""
           draggable={false}
+          crossOrigin={working.startsWith("data:") ? undefined : "anonymous"}
           className="block max-h-[68vh] max-w-[88vw] select-none rounded-lg"
         />
         {/* Crop rectangle with dimmed exterior */}
