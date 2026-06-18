@@ -61,9 +61,12 @@ export default function OutfitsPage() {
     if (ids.length === 0) return;
     setOutfits((prev) => prev.filter((o) => !selected.has(o.id)));
     exitSelect();
-    await Promise.all(
-      ids.map((id) => fetch(`/api/outfits/${id}`, { method: "DELETE" })),
-    );
+    // Single request → avoids the race where parallel deletes overwrite each other
+    await fetch("/api/outfits", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
   }
 
   return (

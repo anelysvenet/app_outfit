@@ -136,6 +136,8 @@ export interface Outfit {
   evening: boolean;
   rating?: number;
   tryOnImage?: string;
+  deleted?: boolean;
+  deletedAt?: string;
   createdAt: string;
 }
 

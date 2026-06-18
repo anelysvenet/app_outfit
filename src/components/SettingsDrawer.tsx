@@ -232,6 +232,7 @@ export default function SettingsDrawer({
 
   // Corbeille
   const [trash, setTrash] = useState<Garment[]>([]);
+  const [trashOutfits, setTrashOutfits] = useState<{ id: string; title: string; cover: string | null }[]>([]);
   const [trashLoading, setTrashLoading] = useState(false);
 
   function toggle(s: string) {
@@ -242,9 +243,12 @@ export default function SettingsDrawer({
   async function loadTrash() {
     setTrashLoading(true);
     try {
-      const res = await fetch("/api/garments/trash");
-      const data = await res.json().catch(() => ({}));
-      setTrash(data.garments ?? []);
+      const [g, o] = await Promise.all([
+        fetch("/api/garments/trash").then((r) => r.json()).catch(() => ({})),
+        fetch("/api/outfits/trash").then((r) => r.json()).catch(() => ({})),
+      ]);
+      setTrash(g.garments ?? []);
+      setTrashOutfits(o.outfits ?? []);
     } finally {
       setTrashLoading(false);
     }
@@ -262,6 +266,20 @@ export default function SettingsDrawer({
   async function purgeGarment(id: string) {
     setTrash((prev) => prev.filter((g) => g.id !== id));
     await fetch(`/api/garments/${id}?permanent=1`, { method: "DELETE" });
+  }
+
+  async function restoreOutfit(id: string) {
+    setTrashOutfits((prev) => prev.filter((o) => o.id !== id));
+    await fetch(`/api/outfits/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ restore: true }),
+    });
+  }
+
+  async function purgeOutfit(id: string) {
+    setTrashOutfits((prev) => prev.filter((o) => o.id !== id));
+    await fetch(`/api/outfits/${id}?permanent=1`, { method: "DELETE" });
   }
 
   async function changeEmail() {
@@ -486,14 +504,15 @@ export default function SettingsDrawer({
           {/* CORBEILLE */}
           <Section title="Corbeille" open={open === "trash"} onToggle={() => toggle("trash")}>
             <p className="text-xs text-smoke">
-              Les vêtements supprimés sont conservés ici. Récupérez-les ou supprimez-les définitivement.
+              Vêtements et tenues supprimés. Récupérez-les ou supprimez-les définitivement.
             </p>
             {trashLoading ? (
               <p className="py-4 text-center text-sm text-smoke">Chargement…</p>
-            ) : trash.length === 0 ? (
+            ) : trash.length === 0 && trashOutfits.length === 0 ? (
               <p className="py-4 text-center text-sm italic text-smoke">La corbeille est vide.</p>
             ) : (
               <div className="space-y-3">
+                {/* Vêtements supprimés */}
                 {trash.map((g) => (
                   <div
                     key={g.id}
@@ -524,6 +543,49 @@ export default function SettingsDrawer({
                       </button>
                       <button
                         onClick={() => purgeGarment(g.id)}
+                        className="flex-1 rounded-full border border-terracotta/50 px-3 py-2 text-xs font-medium text-terracotta transition hover:bg-terracotta hover:text-ivory cursor-pointer"
+                      >
+                        Supprimer définitivement
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Tenues supprimées */}
+                {trashOutfits.map((o) => (
+                  <div
+                    key={o.id}
+                    className="rounded-2xl bg-[#f5ede4] p-3"
+                    style={{
+                      border: "1.5px solid #DDB8A8",
+                      boxShadow: "0 0 6px #DDB8A8, 0 0 14px rgba(221,184,168,0.5)",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {o.cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={o.cover}
+                          alt={o.title}
+                          className="h-16 w-12 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="h-16 w-12 shrink-0 rounded-lg bg-sand" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{o.title}</p>
+                        <p className="text-xs text-smoke">Tenue</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => restoreOutfit(o.id)}
+                        className="flex-1 rounded-full bg-ink px-3 py-2 text-xs font-medium text-ivory transition hover:bg-night cursor-pointer"
+                      >
+                        Récupérer la tenue
+                      </button>
+                      <button
+                        onClick={() => purgeOutfit(o.id)}
                         className="flex-1 rounded-full border border-terracotta/50 px-3 py-2 text-xs font-medium text-terracotta transition hover:bg-terracotta hover:text-ivory cursor-pointer"
                       >
                         Supprimer définitivement

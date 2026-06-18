@@ -182,9 +182,9 @@ export default function OutfitCard({
         </div>
         <h3 className="font-display text-3xl italic">{outfit.title}</h3>
 
-        {/* Flat-lay — pièces détourées sur fond beige */}
-        <div className="mt-6 rounded-2xl bg-[#f3ece2] p-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {/* Flat-lay compact — pièces détourées sur fond beige */}
+        <div className="mt-5 rounded-2xl bg-[#f3ece2] p-3">
+          <div className="mx-auto grid max-w-md grid-cols-3 gap-2 sm:grid-cols-4">
             {items.map(({ role, garment }, i) => (
               <motion.button
                 key={garment.id + i}
@@ -196,7 +196,7 @@ export default function OutfitCard({
                 initial={{ opacity: 0, scale: 0.92 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.1 + 0.12 + i * 0.06 }}
-                className={`group relative rounded-xl p-2 text-left transition ${
+                className={`group relative rounded-lg p-1.5 text-left transition ${
                   swapEnabled ? "cursor-pointer hover:bg-black/[0.04]" : "cursor-default"
                 }`}
               >
@@ -207,18 +207,17 @@ export default function OutfitCard({
                     className="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-105"
                   />
                 </div>
-                <p className="mt-1 text-[9px] uppercase tracking-wider text-smoke">{role}</p>
-                <p className="truncate text-xs text-ink/80">{garment.name}</p>
+                <p className="mt-1 truncate text-[10px] leading-tight text-ink/70">{garment.name}</p>
                 {swapEnabled && (
-                  <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-night/75 text-ivory opacity-0 shadow transition group-hover:opacity-100">
-                    <SwapIcon className="h-3.5 w-3.5" />
+                  <span className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-night/75 text-ivory opacity-0 shadow transition group-hover:opacity-100">
+                    <SwapIcon className="h-3 w-3" />
                   </span>
                 )}
               </motion.button>
             ))}
           </div>
           {swapEnabled && (
-            <p className="mt-2 text-center text-[11px] text-smoke">{t("outfit.tap_to_swap")}</p>
+            <p className="mt-1.5 text-center text-[11px] text-smoke">{t("outfit.tap_to_swap")}</p>
           )}
         </div>
 

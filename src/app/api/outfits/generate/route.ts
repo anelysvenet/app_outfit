@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       ? wardrobe.find((g) => g.id === body.baseGarmentId)
       : undefined;
     const ratedOutfits = db.outfits.filter(
-      (o) => o.userId === user.id && typeof o.rating === "number",
+      (o) => o.userId === user.id && !o.deleted && typeof o.rating === "number",
     );
     const styleRefs = db.styleRefs
       .filter((r) => r.userId === user.id)
