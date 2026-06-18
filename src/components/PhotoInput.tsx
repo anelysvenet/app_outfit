@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useT } from "@/contexts/LanguageContext";
 
-/** Redimensionne l'image côté client (max 1280px) pour limiter le poids. */
 async function fileToDataUrl(file: File): Promise<string> {
   const raw = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -29,6 +29,48 @@ async function fileToDataUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.88);
 }
 
+/** Composite a transparent PNG onto a white background and apply subtle enhancement. */
+async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = reject;
+    img.src = transparentDataUrl;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Subtle contrast + saturation boost for a cleaner product-photo look
+  ctx.filter = "contrast(1.06) saturate(1.1)";
+  ctx.drawImage(img, 0, 0);
+  ctx.filter = "none";
+
+  return canvas.toDataURL("image/jpeg", 0.92);
+}
+
+/** Send photo to server for AI background removal; returns processed data URL or original on error. */
+async function removeBackground(dataUrl: string): Promise<string> {
+  try {
+    const res = await fetch("/api/garments/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoDataUrl: dataUrl }),
+    });
+    if (!res.ok) return dataUrl;
+    const data = await res.json();
+    if (data.skipped || !data.transparentDataUrl) return dataUrl;
+    return await compositeOnWhite(data.transparentDataUrl);
+  } catch {
+    return dataUrl;
+  }
+}
+
 export default function PhotoInput({
   value,
   onChange,
@@ -40,8 +82,10 @@ export default function PhotoInput({
   label: string;
   aspect?: string;
 }) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
   return (
     <div>
@@ -55,9 +99,17 @@ export default function PhotoInput({
           if (!file) return;
           setLoading(true);
           try {
-            onChange(await fileToDataUrl(file));
+            const dataUrl = await fileToDataUrl(file);
+            onChange(dataUrl); // show preview immediately
+            setLoading(false);
+
+            // Background removal in the background (graceful: keeps original on failure)
+            setProcessing(true);
+            const processed = await removeBackground(dataUrl);
+            onChange(processed);
           } finally {
             setLoading(false);
+            setProcessing(false);
           }
         }}
       />
@@ -74,12 +126,23 @@ export default function PhotoInput({
         ) : (
           <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-smoke">
             <span className="text-3xl font-light">+</span>
-            <span className="text-sm">{loading ? "Chargement…" : label}</span>
+            <span className="text-sm">{loading ? "…" : label}</span>
           </span>
         )}
-        {value && (
+
+        {/* Hover overlay — hidden while processing */}
+        {value && !processing && (
           <span className="absolute inset-0 flex items-center justify-center bg-night/0 text-ivory opacity-0 transition group-hover:bg-night/40 group-hover:opacity-100 text-sm">
-            Changer la photo
+            {t("form.change_photo")}
+          </span>
+        )}
+
+        {/* Processing overlay */}
+        {processing && (
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-night/55 backdrop-blur-sm">
+            <span className="text-[10px] uppercase tracking-[0.3em] text-champagne/80 animate-pulse">
+              {t("form.processing")}
+            </span>
           </span>
         )}
       </button>

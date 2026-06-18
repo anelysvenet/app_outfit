@@ -88,6 +88,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.evening_label": "Soirée",
     "form.evening_sub": "classer ce vêtement pour les événements et sorties nocturnes",
     "form.photo_required": "Ajoutez une photo du vêtement.",
+    "form.change_photo": "Changer la photo",
+    "form.processing": "Optimisation…",
     // Categories
     "cat.haut": "Haut",
     "cat.bas": "Bas",
@@ -259,6 +261,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.evening_label": "Evening",
     "form.evening_sub": "classify this garment for evening events and nights out",
     "form.photo_required": "Please add a photo of the garment.",
+    "form.change_photo": "Change photo",
+    "form.processing": "Optimising…",
     // Categories
     "cat.haut": "Top",
     "cat.bas": "Bottom",
@@ -430,6 +434,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.evening_label": "Noche",
     "form.evening_sub": "clasificar esta prenda para eventos nocturnos y salidas",
     "form.photo_required": "Añade una foto de la prenda.",
+    "form.change_photo": "Cambiar foto",
+    "form.processing": "Optimizando…",
     // Categories
     "cat.haut": "Top",
     "cat.bas": "Pantalón",
@@ -601,6 +607,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.evening_label": "Sera",
     "form.evening_sub": "classifica questo capo per eventi serali e uscite notturne",
     "form.photo_required": "Aggiungi una foto del capo.",
+    "form.change_photo": "Cambia foto",
+    "form.processing": "Ottimizzazione…",
     // Categories
     "cat.haut": "Top",
     "cat.bas": "Pantaloni",
@@ -772,6 +780,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.evening_label": "Abend",
     "form.evening_sub": "dieses Kleidungsstück für Abendveranstaltungen und Ausgehende klassifizieren",
     "form.photo_required": "Bitte füge ein Foto des Kleidungsstücks hinzu.",
+    "form.change_photo": "Foto ändern",
+    "form.processing": "Optimierung…",
     // Categories
     "cat.haut": "Oberteil",
     "cat.bas": "Unterteil",
@@ -943,6 +953,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     "form.evening_label": "Noite",
     "form.evening_sub": "classificar esta peça para eventos noturnos e saídas",
     "form.photo_required": "Adicione uma foto da peça.",
+    "form.change_photo": "Mudar foto",
+    "form.processing": "A otimizar…",
     // Categories
     "cat.haut": "Top",
     "cat.bas": "Parte de baixo",
