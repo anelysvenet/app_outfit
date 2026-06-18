@@ -179,7 +179,7 @@ const OutfitGenerationSchema = z.object({
         tips: z.string().describe("Un conseil de styliste pour porter cette tenue"),
       }),
     )
-    .describe("1 à 3 propositions de tenues complètes"),
+    .describe("4 à 6 propositions de tenues complètes et distinctes"),
 });
 
 export interface GenerationContext {
@@ -257,11 +257,11 @@ RÈGLES DE COMPOSITION :
 3. Ajoute une veste/manteau si la météo le justifie (froid, vent, pluie).
 4. Adapte matières et coupes à la température ressentie, au vent et à la pluie.
 5. Respecte l'occasion et les styles préférés.
-6. Propose 2 à 3 tenues distinctes si la garde-robe le permet, sinon 1.`;
+6. Propose 4 à 6 tenues VARIÉES et bien distinctes les unes des autres (styles, couleurs, associations différentes) si la garde-robe le permet ; sinon propose-en le plus possible.`;
 
   const response = await client().messages.parse({
     model: MODEL,
-    max_tokens: 4096,
+    max_tokens: 8192,
     thinking: { type: "adaptive" },
     system:
       `You are an exceptional artistic director and personal stylist. You compose harmonious, realistic and flattering outfits from the user's actual wardrobe, taking into account the weather, the occasion and their tastes. ${langInstruction(ctx.lang)}`,

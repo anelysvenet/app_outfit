@@ -13,6 +13,7 @@ export default function OutfitCard({
   onRated,
   onDeleted,
   index = 0,
+  piecesWrap = false,
 }: {
   outfit: Outfit;
   garments: Garment[];
@@ -20,6 +21,7 @@ export default function OutfitCard({
   onRated?: (rating: number) => void;
   onDeleted?: () => void;
   index?: number;
+  piecesWrap?: boolean;
 }) {
   const t = useT();
   const [rating, setRating] = useState(outfit.rating);
@@ -91,14 +93,18 @@ export default function OutfitCard({
         <h3 className="font-display text-3xl italic">{outfit.title}</h3>
 
         {/* Pièces de la tenue */}
-        <div className="mt-6 flex gap-3 overflow-x-auto pb-2">
+        <div
+          className={`mt-6 gap-3 pb-2 ${
+            piecesWrap ? "flex flex-wrap justify-center" : "flex overflow-x-auto"
+          }`}
+        >
           {items.map(({ role, garment }, i) => (
             <motion.figure
               key={garment.id + i}
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.12 + 0.15 + i * 0.08 }}
-              className="w-28 shrink-0 sm:w-36"
+              className="w-24 shrink-0 sm:w-28"
             >
               <div className="aspect-[3/4] overflow-hidden rounded-xl bg-sand">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

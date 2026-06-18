@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import OutfitCard from "@/components/OutfitCard";
+import OutfitSwiper from "@/components/OutfitSwiper";
 import { useT } from "@/contexts/LanguageContext";
 import {
   OCCASIONS,
@@ -340,16 +340,12 @@ function GeneratorContent() {
             <p className="mt-1 text-sm text-smoke">
               {t("gen.results_sub")}
             </p>
-            <div className="mt-6 space-y-8">
-              {results.map((o, i) => (
-                <OutfitCard
-                  key={o.id}
-                  outfit={o}
-                  garments={garments}
-                  userPhoto={me?.photo}
-                  index={i}
-                />
-              ))}
+            <div className="mt-6">
+              <OutfitSwiper
+                outfits={results}
+                garments={garments}
+                userPhoto={me?.photo}
+              />
             </div>
           </motion.section>
         )}
