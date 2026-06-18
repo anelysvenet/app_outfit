@@ -2,7 +2,18 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { parseDataUrl, saveImage } from "@/lib/storage";
 
-export const maxDuration = 90;
+export const maxDuration = 120;
+
+async function falPost(endpoint: string, body: object): Promise<Response> {
+  return fetch(`https://fal.run/${endpoint}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Key ${process.env.FAL_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+}
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
@@ -18,45 +29,68 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Photo requise" }, { status: 400 });
     }
 
-    // Upload original to Vercel Blob — fal.ai requires a real HTTPS URL
+    // 1. Upload padded image to Vercel Blob (fal.ai requires HTTPS URLs)
     const { base64, mediaType } = parseDataUrl(photoDataUrl);
     const imageUrl = await saveImage(base64, mediaType);
 
-    // BiRefNet "General Use (Heavy)" — largest/most accurate model, best for clothing edges
-    const falRes = await fetch("https://fal.run/fal-ai/birefnet", {
-      method: "POST",
-      headers: {
-        Authorization: `Key ${process.env.FAL_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ image_url: imageUrl, model: "General Use (Heavy)" }),
+    // 2. Dewrinkle via FLUX image-to-image (low strength preserves garment design)
+    let processedUrl = imageUrl;
+    try {
+      const fluxRes = await falPost("fal-ai/flux/dev/image-to-image", {
+        image_url: imageUrl,
+        prompt:
+          "smooth fabric clothing product photography, wrinkle-free textile, flat crisp fabric, professional fashion catalog, clean studio lighting, commercial clothing shoot",
+        strength: 0.25,
+        num_inference_steps: 20,
+        guidance_scale: 3.5,
+        seed: 42,
+      });
+      if (fluxRes.ok) {
+        const fluxData = await fluxRes.json();
+        const smoothedUrl: string | undefined = fluxData?.images?.[0]?.url;
+        if (smoothedUrl) {
+          const smoothedRes = await fetch(smoothedUrl);
+          if (smoothedRes.ok) {
+            const smoothedBuf = Buffer.from(await smoothedRes.arrayBuffer());
+            const smoothedMime = smoothedRes.headers.get("content-type") ?? "image/jpeg";
+            processedUrl = await saveImage(smoothedBuf.toString("base64"), smoothedMime);
+          }
+        }
+      } else {
+        console.warn("[flux] dewrinkle error:", fluxRes.status, await fluxRes.text().catch(() => ""));
+      }
+    } catch (e) {
+      console.warn("[flux] dewrinkle step failed, continuing with original:", e);
+    }
+
+    // 3. Background removal — BiRefNet "General Use (Heavy)" for accurate clothing edges
+    const birefRes = await falPost("fal-ai/birefnet", {
+      image_url: processedUrl,
+      model: "General Use (Heavy)",
     });
 
-    if (!falRes.ok) {
-      console.error("[birefnet] error:", falRes.status, await falRes.text().catch(() => ""));
+    if (!birefRes.ok) {
+      console.error("[birefnet] error:", birefRes.status, await birefRes.text().catch(() => ""));
       return NextResponse.json({ skipped: true });
     }
 
-    const falData = await falRes.json();
-    const resultUrl: string | undefined = falData?.image?.url ?? falData?.images?.[0]?.url;
+    const birefData = await birefRes.json();
+    const resultUrl: string | undefined = birefData?.image?.url ?? birefData?.images?.[0]?.url;
     if (!resultUrl) {
-      console.error("[birefnet] no image in response:", JSON.stringify(falData));
+      console.error("[birefnet] no image in response:", JSON.stringify(birefData));
       return NextResponse.json({ skipped: true });
     }
 
-    // Download the transparent PNG
+    // 4. Download the transparent PNG and return as base64
     const pngRes = await fetch(resultUrl);
     if (!pngRes.ok) return NextResponse.json({ skipped: true });
 
     const pngBuf = Buffer.from(await pngRes.arrayBuffer());
-    const transparentBase64 = pngBuf.toString("base64");
-
     return NextResponse.json({
-      transparentDataUrl: `data:image/png;base64,${transparentBase64}`,
+      transparentDataUrl: `data:image/png;base64,${pngBuf.toString("base64")}`,
     });
   } catch (e) {
     console.error("[garments/process]", e);
-    // Graceful fallback: caller will use the original photo
     return NextResponse.json({ skipped: true });
   }
 }
