@@ -310,15 +310,7 @@ function GeneratorContent() {
                 ? t("gen.composing")
                 : t("gen.compose")}
             </button>
-            {generating && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-5"
-              >
-                <LogoLoader label={t("gen.analyzing")} />
-              </motion.div>
-            )}
+            {generating && <LogoLoader fullscreen label={t("gen.analyzing")} />}
             {error && <p className="mt-3 text-sm text-terracotta">{error}</p>}
           </section>
         </div>
