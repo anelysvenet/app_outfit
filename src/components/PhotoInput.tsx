@@ -4,8 +4,9 @@ import { useRef, useState } from "react";
 import { useT } from "@/contexts/LanguageContext";
 
 /**
- * Decode a file with EXIF orientation already applied (consistent across browsers),
- * auto-rotate true landscape photos to portrait, and downscale.
+ * Decode a file with EXIF orientation already applied (consistent across browsers)
+ * and downscale. Orientation of the garment itself is corrected later, after
+ * background removal, based on the garment's bounding box.
  */
 async function fileToDataUrl(file: File): Promise<string> {
   // imageOrientation "from-image" bakes in EXIF rotation, so width/height are visually correct
@@ -18,31 +19,15 @@ async function fileToDataUrl(file: File): Promise<string> {
 
   const srcW = bitmap.width;
   const srcH = bitmap.height;
-  const isLandscape = srcW > srcH; // only rotate genuine landscape photos
-
-  // Target portrait display dimensions
-  const dispW = isLandscape ? srcH : srcW;
-  const dispH = isLandscape ? srcW : srcH;
-
   const MAX = 1280;
-  const scale = Math.min(1, MAX / Math.max(dispW, dispH));
-  const outW = Math.round(dispW * scale);
-  const outH = Math.round(dispH * scale);
+  const scale = Math.min(1, MAX / Math.max(srcW, srcH));
+  const outW = Math.round(srcW * scale);
+  const outH = Math.round(srcH * scale);
 
   const canvas = document.createElement("canvas");
   canvas.width = outW;
   canvas.height = outH;
-  const ctx = canvas.getContext("2d")!;
-
-  if (isLandscape) {
-    // Rotate 90° clockwise into the portrait canvas
-    ctx.translate(outW, 0);
-    ctx.rotate(Math.PI / 2);
-    // In rotated space the axes are swapped: draw to (outH × outW)
-    ctx.drawImage(bitmap, 0, 0, outH, outW);
-  } else {
-    ctx.drawImage(bitmap, 0, 0, outW, outH);
-  }
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, outW, outH);
 
   bitmap.close?.();
   return canvas.toDataURL("image/jpeg", 0.9);
@@ -102,7 +87,13 @@ function keepLargestComponent(alpha: Uint8Array, w: number, h: number) {
   return { label, bestLabel };
 }
 
-/** Composite a transparent PNG onto white with crisp edges, keeping only the main garment. */
+const TARGET_ASPECT = 3 / 4; // portrait card ratio used in the dressing grid
+
+/**
+ * Composite a transparent PNG onto white: keep only the main garment, crop to it,
+ * straighten it to portrait, and centre it on a portrait 3:4 white canvas so it
+ * sits upright in the dressing overview.
+ */
 async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
@@ -131,24 +122,80 @@ async function compositeOnWhite(transparentDataUrl: string): Promise<string> {
     d[i * 4 + 3] = a ? 255 : 0;
   }
 
-  // Strip stray pieces: keep only the largest connected region
+  // Keep only the largest connected region; compute its bounding box on the way
   const { label, bestLabel } = keepLargestComponent(alpha, w, h);
-  if (bestLabel >= 0) {
-    for (let i = 0; i < n; i++) {
-      if (label[i] !== bestLabel) d[i * 4 + 3] = 0;
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let i = 0; i < n; i++) {
+    if (label[i] === bestLabel) {
+      const x = i % w;
+      const y = (i - x) / w;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    } else {
+      d[i * 4 + 3] = 0; // strip stray pieces
     }
   }
   mctx.putImageData(imageData, 0, 0);
 
-  // Composite cleaned garment onto white background
+  // No garment detected → fall back to a plain white composite
+  if (maxX < 0) {
+    const fb = document.createElement("canvas");
+    fb.width = w;
+    fb.height = h;
+    const fctx = fb.getContext("2d")!;
+    fctx.fillStyle = "#ffffff";
+    fctx.fillRect(0, 0, w, h);
+    fctx.drawImage(mask, 0, 0);
+    return fb.toDataURL("image/png");
+  }
+
+  // Crop tightly to the garment
+  const bw = maxX - minX + 1;
+  const bh = maxY - minY + 1;
+  const crop = document.createElement("canvas");
+  crop.width = bw;
+  crop.height = bh;
+  crop.getContext("2d")!.drawImage(mask, minX, minY, bw, bh, 0, 0, bw, bh);
+
+  // Straighten: if the garment lies sideways (wider than tall), rotate it upright
+  let gCanvas: HTMLCanvasElement = crop;
+  let gW = bw;
+  let gH = bh;
+  if (bw > bh) {
+    const rot = document.createElement("canvas");
+    rot.width = bh;
+    rot.height = bw;
+    const rctx = rot.getContext("2d")!;
+    rctx.translate(bh, 0);
+    rctx.rotate(Math.PI / 2);
+    rctx.drawImage(crop, 0, 0);
+    gCanvas = rot;
+    gW = bh;
+    gH = bw;
+  }
+
+  // Fit the garment into a portrait 3:4 canvas with a small margin, centred
+  const pad = 0.9; // garment occupies up to 90% of the frame
+  const gAspect = gW / gH;
+  let cw: number, ch: number;
+  if (gAspect <= TARGET_ASPECT) {
+    ch = Math.round(gH / pad);
+    cw = Math.round(ch * TARGET_ASPECT);
+  } else {
+    cw = Math.round(gW / pad);
+    ch = Math.round(cw / TARGET_ASPECT);
+  }
+
   const out = document.createElement("canvas");
-  out.width = w;
-  out.height = h;
+  out.width = cw;
+  out.height = ch;
   const octx = out.getContext("2d")!;
   octx.fillStyle = "#ffffff";
-  octx.fillRect(0, 0, w, h);
+  octx.fillRect(0, 0, cw, ch);
   octx.filter = "contrast(1.05) saturate(1.08)";
-  octx.drawImage(mask, 0, 0);
+  octx.drawImage(gCanvas, Math.round((cw - gW) / 2), Math.round((ch - gH) / 2));
   octx.filter = "none";
 
   return out.toDataURL("image/png"); // PNG → artefact-free white background
