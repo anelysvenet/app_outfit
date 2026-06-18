@@ -39,10 +39,11 @@ export async function POST(req: Request) {
       const fluxRes = await falPost("fal-ai/flux/dev/image-to-image", {
         image_url: imageUrl,
         prompt:
-          "the exact same clothing item, perfectly smooth and ironed fabric, completely wrinkle-free, flat even textile surface, no creases, no folds, pristine steamed garment, professional fashion e-commerce product photography, studio lighting, sharp detail, same color and same shape",
-        strength: 0.42,
+          "the exact same clothing item, only the fabric gently steamed and smoothed, fewer wrinkles and creases, identical garment, keep all logos prints text graphics patterns labels and embroidery perfectly intact and unchanged, same colors same shape same design, professional fashion e-commerce product photography, sharp detail",
+        // Low strength preserves logos/prints/text while still relaxing wrinkles
+        strength: 0.2,
         num_inference_steps: 30,
-        guidance_scale: 3.5,
+        guidance_scale: 4,
         seed: 42,
       });
       if (fluxRes.ok) {
