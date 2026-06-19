@@ -54,9 +54,9 @@ async function cropTo(src: string, r: Rect): Promise<string> {
 
 const FULL: Rect = { x: 0, y: 0, w: 1, h: 1 };
 const MIN = 0.1;
-// Checkerboard so erased (transparent) areas are visible
+// Neutral grey/white checkerboard — the universal "transparent / removed" look
 const CHECKER =
-  "repeating-conic-gradient(#d9d2c7 0% 25%, #f1ece3 0% 50%) 50% / 18px 18px";
+  "repeating-conic-gradient(#bdbdbd 0% 25%, #ffffff 0% 50%) 50% / 16px 16px";
 
 export default function PhotoEditor({
   src,

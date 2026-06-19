@@ -466,9 +466,39 @@ export default function PhotoInput({
         <PhotoEditor
           src={value}
           onClose={() => setEditing(false)}
-          onApply={(edited) => {
-            onChange(edited);
+          onApply={async (edited) => {
             setEditing(false);
+            try {
+              const im = await loadImage(edited);
+              const c = document.createElement("canvas");
+              c.width = im.naturalWidth;
+              c.height = im.naturalHeight;
+              const cx = c.getContext("2d", { willReadFrequently: true })!;
+              cx.drawImage(im, 0, 0);
+              // Did the user erase anything? (any transparent pixel)
+              const d = cx.getImageData(0, 0, c.width, c.height).data;
+              let hasAlpha = false;
+              for (let i = 3; i < d.length; i += 4) {
+                if (d[i] < 250) { hasAlpha = true; break; }
+              }
+              if (hasAlpha) {
+                // Keep the erased cut-out transparent for the render, and a
+                // white-bg version for grids/try-on
+                onCutout?.(edited);
+                const wc = document.createElement("canvas");
+                wc.width = c.width;
+                wc.height = c.height;
+                const wx = wc.getContext("2d")!;
+                wx.fillStyle = "#ffffff";
+                wx.fillRect(0, 0, wc.width, wc.height);
+                wx.drawImage(im, 0, 0);
+                onChange(wc.toDataURL("image/png"));
+              } else {
+                onChange(edited);
+              }
+            } catch {
+              onChange(edited);
+            }
           }}
         />
       )}
