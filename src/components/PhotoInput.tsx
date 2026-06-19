@@ -90,6 +90,59 @@ function keepLargestComponent(alpha: Uint8Array, w: number, h: number) {
   return { label, bestLabel };
 }
 
+type LogoBox = { x: number; y: number; w: number; h: number };
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    if (!src.startsWith("data:")) im.crossOrigin = "anonymous";
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = src;
+  });
+}
+
+/** Paste the real logo pixels from the original photo back over the ironed
+ *  garment (feathered, within the silhouette) so prints stay authentic. */
+async function pasteLogos(
+  mctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  originalSrc: string,
+  boxes: LogoBox[],
+) {
+  if (!boxes.length) return;
+  const orig = await loadImage(originalSrc);
+  const OW = orig.naturalWidth;
+  const OH = orig.naturalHeight;
+  for (const b of boxes) {
+    const dw = Math.max(1, Math.round(b.w * w));
+    const dh = Math.max(1, Math.round(b.h * h));
+    const dx = Math.round(b.x * w);
+    const dy = Math.round(b.y * h);
+    const fc = document.createElement("canvas");
+    fc.width = dw;
+    fc.height = dh;
+    const fctx = fc.getContext("2d", { willReadFrequently: true })!;
+    fctx.drawImage(orig, b.x * OW, b.y * OH, b.w * OW, b.h * OH, 0, 0, dw, dh);
+    const fid = fctx.getImageData(0, 0, dw, dh);
+    const p = fid.data;
+    const fm = Math.max(2, Math.min(dw, dh) * 0.16);
+    for (let y = 0; y < dh; y++) {
+      for (let x = 0; x < dw; x++) {
+        const edge = Math.min(x, y, dw - 1 - x, dh - 1 - y);
+        const f = Math.max(0, Math.min(1, edge / fm));
+        p[(y * dw + x) * 4 + 3] *= f;
+      }
+    }
+    fctx.putImageData(fid, 0, 0);
+    mctx.save();
+    mctx.globalCompositeOperation = "source-atop";
+    mctx.drawImage(fc, dx, dy, dw, dh);
+    mctx.restore();
+  }
+}
+
 /**
  * Edge-preserving smoothing ("ironing") — non-generative. Averages a pixel with
  * a blurred copy only in low-contrast areas (soft wrinkle shadows), while strong
@@ -143,21 +196,40 @@ const TARGET_ASPECT = 3 / 4; // portrait card ratio used in the dressing grid
  */
 async function buildImages(
   transparentDataUrl: string,
+  opts?: { ironedDataUrl?: string | null; originalSrc?: string; logoBoxes?: LogoBox[] },
 ): Promise<{ white: string; cutout: string }> {
-  const img = new Image();
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = reject;
-    img.src = transparentDataUrl;
-  });
+  const img = await loadImage(transparentDataUrl);
 
   const w = img.naturalWidth;
   const h = img.naturalHeight;
   const mask = document.createElement("canvas");
   mask.width = w;
   mask.height = h;
-  const mctx = mask.getContext("2d")!;
-  mctx.drawImage(img, 0, 0);
+  const mctx = mask.getContext("2d", { willReadFrequently: true })!;
+  mctx.drawImage(img, 0, 0); // alpha + original RGB from BiRefNet on the ORIGINAL
+
+  // Overlay the ironed RGB only inside the silhouette (keeps the real alpha,
+  // e.g. the gap between trouser legs)
+  if (opts?.ironedDataUrl) {
+    try {
+      const ironed = await loadImage(opts.ironedDataUrl);
+      mctx.save();
+      mctx.globalCompositeOperation = "source-atop";
+      mctx.drawImage(ironed, 0, 0, w, h);
+      mctx.restore();
+    } catch (e) {
+      console.warn("[ironed overlay] failed:", e);
+    }
+  }
+
+  // Restore the real logos over the ironed fabric
+  if (opts?.originalSrc && opts.logoBoxes && opts.logoBoxes.length) {
+    try {
+      await pasteLogos(mctx, w, h, opts.originalSrc, opts.logoBoxes);
+    } catch (e) {
+      console.warn("[pasteLogos] failed:", e);
+    }
+  }
 
   const imageData = mctx.getImageData(0, 0, w, h);
   const d = imageData.data;
@@ -284,7 +356,11 @@ async function processPhoto(dataUrl: string): Promise<{ white: string; cutout?: 
     if (!res.ok) return { white: dataUrl };
     const data = await res.json();
     if (data.skipped || !data.transparentDataUrl) return { white: dataUrl };
-    return await buildImages(data.transparentDataUrl);
+    return await buildImages(data.transparentDataUrl, {
+      ironedDataUrl: data.ironedDataUrl,
+      originalSrc: padded,
+      logoBoxes: data.logoBoxes ?? [],
+    });
   } catch {
     return { white: dataUrl };
   }
