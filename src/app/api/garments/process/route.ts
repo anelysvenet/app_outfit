@@ -32,7 +32,7 @@ async function dewrinkle(imageUrl: string): Promise<string | null> {
       image_url: imageUrl,
       prompt:
         "the exact same clothing item, fabric perfectly ironed and steamed, completely smooth, wrinkle-free, flat even textile, no creases no folds, identical color shape and design, professional fashion e-commerce product photo on plain background, sharp focus",
-      strength: 0.28,
+      strength: 0.38,
       num_inference_steps: 30,
       guidance_scale: 3.5,
       seed: 42,

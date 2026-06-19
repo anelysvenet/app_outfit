@@ -233,7 +233,9 @@ const LogoDetectionSchema = z.object({
         h: z.number().describe("Box height, as a fraction 0-1 of image height"),
       }),
     )
-    .describe("Tight bounding boxes around printed logos, brand text or graphic prints. Empty if none."),
+    .describe(
+      "Tight bounding boxes around ANYTHING that must stay pixel-identical: printed logos, brand text, graphic prints, AND buttons, button plackets, snaps, zips, studs, buckles, metal hardware and drawcords. Empty if none.",
+    ),
   ironable: z
     .boolean()
     .describe(
@@ -249,7 +251,7 @@ export async function detectLogos(base64: string, mediaType: string): Promise<Lo
     model: MODEL,
     max_tokens: 1024,
     system:
-      "You analyse a single fashion item photo. (1) Locate printed logos, brand marks, slogans, embroidered emblems and graphic prints — return TIGHT bounding boxes as fractions of the image (0 to 1); ignore plain fabric, buttons, zips and seams; empty list if none. (2) Decide whether the item is a soft fabric garment that can be ironed.",
+      "You analyse a single fashion item photo. (1) Locate everything that must stay pixel-identical: printed logos, brand marks, slogans, embroidered emblems, graphic prints, AND buttons, button plackets, snaps, zips, studs, buckles, metal hardware and drawcords — return TIGHT bounding boxes as fractions of the image (0 to 1); ignore plain fabric and seams; empty list if none. (2) Decide whether the item is a soft fabric garment that can be ironed.",
     messages: [
       {
         role: "user",
@@ -282,8 +284,8 @@ export async function detectLogos(base64: string, mediaType: string): Promise<Lo
       w: Math.max(0, Math.min(1, b.w)),
       h: Math.max(0, Math.min(1, b.h)),
     }))
-    .filter((b) => b.w > 0.02 && b.h > 0.02 && b.w < 0.95 && b.h < 0.95)
-    .slice(0, 5);
+    .filter((b) => b.w > 0.01 && b.h > 0.01 && b.w < 0.95 && b.h < 0.95)
+    .slice(0, 12);
   return { logos, ironable: out?.ironable ?? true };
 }
 

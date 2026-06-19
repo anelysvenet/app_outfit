@@ -186,6 +186,44 @@ function smoothFabric(src: HTMLCanvasElement): HTMLCanvasElement {
   return out;
 }
 
+/**
+ * Make background-connected near-white pixels transparent. Starts from the image
+ * border and flows through already-transparent + near-white pixels, so leftover
+ * background the matte missed — typically the gap BETWEEN trouser legs (reachable
+ * via the opening at the hems) — gets cut out. Interior white that is enclosed by
+ * the garment (e.g. a white top) is preserved.
+ */
+function openBackground(d: Uint8ClampedArray, w: number, h: number) {
+  const n = w * h;
+  const seen = new Uint8Array(n);
+  const stack: number[] = [];
+  // Only near-PURE white (studio backdrop) is treated as background, so real
+  // (slightly shaded) white garments are not eaten into.
+  const removable = (p: number) => {
+    const o = p * 4;
+    return d[o + 3] < 30 || (d[o] > 248 && d[o + 1] > 248 && d[o + 2] > 248);
+  };
+  for (let x = 0; x < w; x++) {
+    stack.push(x, (h - 1) * w + x);
+  }
+  for (let y = 0; y < h; y++) {
+    stack.push(y * w, y * w + w - 1);
+  }
+  while (stack.length) {
+    const p = stack.pop()!;
+    if (seen[p]) continue;
+    seen[p] = 1;
+    if (!removable(p)) continue;
+    d[p * 4 + 3] = 0;
+    const x = p % w;
+    const y = (p - x) / w;
+    if (x > 0) stack.push(p - 1);
+    if (x < w - 1) stack.push(p + 1);
+    if (y > 0) stack.push(p - w);
+    if (y < h - 1) stack.push(p + w);
+  }
+}
+
 const TARGET_ASPECT = 3 / 4; // portrait card ratio used in the dressing grid
 
 /**
@@ -234,6 +272,9 @@ async function buildImages(
   const imageData = mctx.getImageData(0, 0, w, h);
   const d = imageData.data;
   const n = w * h;
+
+  // Cut leftover background connected to the border (e.g. between trouser legs)
+  openBackground(d, w, h);
 
   // Threshold alpha to binary → crisp edges, no semi-transparent fringe
   const alpha = new Uint8Array(n);
