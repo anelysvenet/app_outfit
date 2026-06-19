@@ -5,10 +5,74 @@ import LogoLoader from "./LogoLoader";
 import { useT } from "@/contexts/LanguageContext";
 import type { Colorimetry, ColorSwatch } from "@/lib/types";
 
-// Tolerates legacy data where a colour was just a string
+// Fallback name -> hex (EN + FR) for when the AI didn't return a hex
+const NAME_HEX: Record<string, string> = {
+  // neutrals
+  black: "#1c1917", noir: "#1c1917", white: "#f8f5f0", blanc: "#f8f5f0",
+  ivory: "#f1e9d8", ivoire: "#f1e9d8", cream: "#f2ead9", creme: "#f2ead9",
+  beige: "#d8c4a5", sand: "#dcc9a8", camel: "#b08d57", tan: "#c8a878",
+  taupe: "#8b7d6b", brown: "#6b4a2b", marron: "#6b4a2b", chocolate: "#4a2f1c",
+  grey: "#9aa0a6", gray: "#9aa0a6", gris: "#9aa0a6", charcoal: "#3a3f44",
+  anthracite: "#3a3f44", slate: "#5a6470", silver: "#c0c0c0", argent: "#c0c0c0",
+  // blues
+  navy: "#1f2a44", marine: "#1f2a44", blue: "#3b6ea5", bleu: "#3b6ea5",
+  periwinkle: "#8f9fd1", cobalt: "#274690", teal: "#2f7d7a", turquoise: "#3fb6b2",
+  // greens
+  green: "#3f7d54", vert: "#3f7d54", sage: "#9caf88", sauge: "#9caf88",
+  emerald: "#1f7a5a", emeraude: "#1f7a5a", olive: "#6b6f3a", forest: "#2f5d3a",
+  mint: "#a8d5ba", kaki: "#7a7350", khaki: "#7a7350",
+  // reds / pinks / purples
+  red: "#b23b3b", rouge: "#b23b3b", burgundy: "#6e2433", bordeaux: "#6e2433",
+  coral: "#e6766b", corail: "#e6766b", pink: "#e3a3b5", rose: "#e3a3b5",
+  blush: "#e7c4c8", fuchsia: "#b23a82", mauve: "#b08ca0", purple: "#6b4a8a",
+  violet: "#6b4a8a", lavender: "#b9a7d6", lavande: "#b9a7d6", plum: "#5e2e4d",
+  prune: "#5e2e4d",
+  // warm
+  yellow: "#e9c44c", jaune: "#e9c44c", mustard: "#c79a3a", moutarde: "#c79a3a",
+  gold: "#c9a534", orange: "#d97a3a", peach: "#f0bf9b", peche: "#f0bf9b",
+  terracotta: "#c06a4a", apricot: "#e8a26a",
+};
+// modifiers that lighten / mute the base hue
+const LIGHTEN = ["soft", "powder", "pale", "light", "dusty", "muted", "pastel", "doux", "clair", "pale"];
+
+function clampByte(v: number) {
+  return Math.max(0, Math.min(255, Math.round(v)));
+}
+function lighten(hex: string, f: number) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mix = (c: number) => clampByte(c + (255 - c) * f);
+  return `#${((mix(r) << 16) | (mix(g) << 8) | mix(b)).toString(16).padStart(6, "0")}`;
+}
+
+function normalize(s: string) {
+  return s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+function hexFor(name: string): string {
+  const norm = normalize(name);
+  let base = NAME_HEX[norm];
+  if (!base) {
+    // longest keyword contained in the name wins
+    const key = Object.keys(NAME_HEX)
+      .filter((k) => norm.includes(k))
+      .sort((a, b) => b.length - a.length)[0];
+    base = key ? NAME_HEX[key] : "#c9bfb0";
+  }
+  if (LIGHTEN.some((m) => norm.includes(m))) base = lighten(base, 0.28);
+  return base;
+}
+
+function isHex(s?: string) {
+  return !!s && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s.trim());
+}
+
+// Tolerates legacy data (string) and missing/invalid hex
 function toSwatch(c: ColorSwatch | string): ColorSwatch {
-  if (typeof c === "string") return { name: c, hex: "#c9bfb0" };
-  return { name: c.name, hex: c.hex || "#c9bfb0" };
+  if (typeof c === "string") return { name: c, hex: hexFor(c) };
+  return { name: c.name, hex: isHex(c.hex) ? c.hex : hexFor(c.name) };
 }
 
 async function fileToDataUrl(file: File): Promise<string> {
