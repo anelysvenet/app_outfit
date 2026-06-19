@@ -175,7 +175,7 @@ function GeneratorContent() {
 
   const wardrobeReady =
     garments.some((g) => g.category === "chaussures") &&
-    (garments.some((g) => g.category === "robe") ||
+    (garments.some((g) => g.category === "robe" || g.category === "combinaison") ||
       (garments.some((g) => g.category === "haut" || g.category === "veste") &&
         garments.some((g) => g.category === "bas")));
 

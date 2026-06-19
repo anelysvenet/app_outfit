@@ -33,7 +33,9 @@ export async function POST(req: Request) {
     const hasTopBottom =
       wardrobe.some((g) => g.category === "haut" || g.category === "veste") &&
       wardrobe.some((g) => g.category === "bas");
-    const hasDress = wardrobe.some((g) => g.category === "robe");
+    const hasDress = wardrobe.some(
+      (g) => g.category === "robe" || g.category === "combinaison",
+    );
     const hasShoes = wardrobe.some((g) => g.category === "chaussures");
 
     if ((!hasTopBottom && !hasDress) || !hasShoes) {

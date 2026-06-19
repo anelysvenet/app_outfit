@@ -23,7 +23,7 @@ function client(): Anthropic {
 const GarmentAnalysisSchema = z.object({
   name: z.string().describe("Nom court du vêtement, ex: « Chemise en lin blanche »"),
   category: z
-    .enum(["haut", "bas", "robe", "veste", "chaussures", "sac", "sacoche", "ceinture", "chapeau", "bijoux", "lunettes", "foulard", "accessoire"])
+    .enum(["haut", "bas", "robe", "combinaison", "veste", "chaussures", "sac", "sacoche", "ceinture", "chapeau", "bijoux", "lunettes", "foulard", "accessoire"])
     .describe("Catégorie du vêtement ou accessoire"),
   type: z.string().describe("Type précis, ex: chemise, jean, blazer, sneakers, ceinture"),
   cut: z
@@ -401,7 +401,7 @@ ${ctx.colorimetry ? `Saison ${ctx.colorimetry.season}, sous-ton ${ctx.colorimetr
 
 RÈGLES DE COMPOSITION :
 1. Utilise UNIQUEMENT des vêtements présents dans la garde-robe, référencés par leur id exact.
-2. Chaque tenue doit comporter : un haut + un bas (OU une robe), et des chaussures. ${hasBag ? "Ajoute un sac ou sacoche adapté(e)." : "Aucun sac dans la garde-robe : n'en propose pas."} ${hasAccessories ? "Enrichis la tenue avec des accessoires pertinents disponibles (ceinture, bijoux, chapeau, lunettes, foulard…)." : "Aucun accessoire disponible : n'en propose pas."}
+2. Chaque tenue doit comporter : un haut + un bas (OU une robe OU une combinaison), et des chaussures. ${hasBag ? "Ajoute un sac ou sacoche adapté(e)." : "Aucun sac dans la garde-robe : n'en propose pas."} ${hasAccessories ? "Enrichis la tenue avec des accessoires pertinents disponibles (ceinture, bijoux, chapeau, lunettes, foulard…)." : "Aucun accessoire disponible : n'en propose pas."}
 3. Ajoute une veste/manteau si la météo le justifie (froid, vent, pluie).
 4. Adapte matières et coupes à la température ressentie, au vent et à la pluie.
 5. Respecte l'occasion et les styles préférés.

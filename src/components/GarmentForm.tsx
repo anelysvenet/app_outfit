@@ -17,6 +17,7 @@ const CATEGORY_KEYS: Record<Category, string> = {
   haut: "cat.haut",
   bas: "cat.bas",
   robe: "cat.robe",
+  combinaison: "cat.combinaison",
   veste: "cat.veste",
   chaussures: "cat.chaussures",
   sac: "cat.sac",

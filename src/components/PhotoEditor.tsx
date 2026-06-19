@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/contexts/LanguageContext";
-import { RotateCwIcon, RotateCcwIcon, CropIcon, EraserIcon } from "./icons";
+import { RotateCwIcon, RotateCcwIcon, CropIcon, EraserIcon, MoveIcon } from "./icons";
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -70,8 +70,10 @@ export default function PhotoEditor({
   const t = useT();
   const [working, setWorking] = useState(src);
   const [mode, setMode] = useState<"crop" | "erase">("crop");
+  const [eraseTool, setEraseTool] = useState<"brush" | "pan">("brush");
   const [rect, setRect] = useState<Rect>(FULL);
   const [brush, setBrush] = useState(26);
+  const [zoom, setZoom] = useState({ scale: 1, tx: 0, ty: 0 });
   const [busy, setBusy] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const drag = useRef<{ mode: string; sx: number; sy: number; orig: Rect } | null>(null);
@@ -163,7 +165,9 @@ export default function PhotoEditor({
     };
   }, [mode, working]);
 
-  function eraseAt(e: React.PointerEvent) {
+  // getBoundingClientRect reflects the current zoom/pan transform, so erase
+  // coordinates stay correct at any zoom level.
+  function eraseAt(e: { clientX: number; clientY: number }) {
     const cv = eraseRef.current;
     if (!cv) return;
     const r = cv.getBoundingClientRect();
@@ -179,11 +183,89 @@ export default function PhotoEditor({
     ctx.restore();
   }
 
+  // ── Zoom & pan (pinch with 2 fingers; one finger erases or pans) ──
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinch = useRef<{ dist: number; scale: number; mx: number; my: number; tx: number; ty: number } | null>(null);
+  const panStart = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+  const dist2 = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y);
+
+  function onCanvasDown(e: React.PointerEvent) {
+    e.preventDefault();
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      painting.current = false;
+      panStart.current = null;
+      const [p1, p2] = [...pointers.current.values()];
+      pinch.current = {
+        dist: dist2(p1, p2),
+        scale: zoom.scale,
+        mx: (p1.x + p2.x) / 2,
+        my: (p1.y + p2.y) / 2,
+        tx: zoom.tx,
+        ty: zoom.ty,
+      };
+    } else if (pointers.current.size === 1) {
+      if (eraseTool === "brush") {
+        painting.current = true;
+        eraseAt(e);
+      } else {
+        panStart.current = { x: e.clientX, y: e.clientY, tx: zoom.tx, ty: zoom.ty };
+      }
+    }
+  }
+
+  function onCanvasMove(e: React.PointerEvent) {
+    if (pointers.current.has(e.pointerId)) {
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pointers.current.size >= 2 && pinch.current) {
+      const [p1, p2] = [...pointers.current.values()];
+      const d = dist2(p1, p2);
+      const mx = (p1.x + p2.x) / 2;
+      const my = (p1.y + p2.y) / 2;
+      const scale = clamp((pinch.current.scale * d) / pinch.current.dist, 1, 5);
+      setZoom({
+        scale,
+        tx: pinch.current.tx + (mx - pinch.current.mx),
+        ty: pinch.current.ty + (my - pinch.current.my),
+      });
+      return;
+    }
+    if (pointers.current.size === 1) {
+      if (eraseTool === "brush" && painting.current) {
+        eraseAt(e);
+      } else if (eraseTool === "pan" && panStart.current) {
+        setZoom((z) => ({
+          ...z,
+          tx: panStart.current!.tx + (e.clientX - panStart.current!.x),
+          ty: panStart.current!.ty + (e.clientY - panStart.current!.y),
+        }));
+      }
+    }
+  }
+
+  function onCanvasUp(e: React.PointerEvent) {
+    pointers.current.delete(e.pointerId);
+    painting.current = false;
+    panStart.current = null;
+    if (pointers.current.size < 2) pinch.current = null;
+  }
+
+  function zoomBy(f: number) {
+    setZoom((z) => {
+      const scale = clamp(z.scale * f, 1, 5);
+      return scale === 1 ? { scale: 1, tx: 0, ty: 0 } : { ...z, scale };
+    });
+  }
+
   async function doRotate(dir: "cw" | "ccw") {
     setBusy(true);
     try {
       setWorking(await rotate(working, dir));
       setRect(FULL);
+      setZoom({ scale: 1, tx: 0, ty: 0 });
       eraseInitFor.current = null; // re-init erase canvas for the rotated image
     } finally {
       setBusy(false);
@@ -265,21 +347,20 @@ export default function PhotoEditor({
             </div>
           </>
         ) : (
-          <div className="rounded-lg" style={{ background: CHECKER }}>
+          <div className="overflow-hidden rounded-lg" style={{ background: CHECKER }}>
             <canvas
               ref={eraseRef}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                painting.current = true;
-                (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-                eraseAt(e);
+              onPointerDown={onCanvasDown}
+              onPointerMove={onCanvasMove}
+              onPointerUp={onCanvasUp}
+              onPointerCancel={onCanvasUp}
+              style={{
+                transform: `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.scale})`,
+                transformOrigin: "0 0",
               }}
-              onPointerMove={(e) => {
-                if (painting.current) eraseAt(e);
-              }}
-              onPointerUp={() => (painting.current = false)}
-              onPointerCancel={() => (painting.current = false)}
-              className="block max-h-[64vh] max-w-[88vw] cursor-crosshair touch-none rounded-lg"
+              className={`block max-h-[64vh] max-w-[88vw] touch-none rounded-lg ${
+                eraseTool === "brush" ? "cursor-crosshair" : "cursor-grab"
+              }`}
             />
           </div>
         )}
@@ -287,10 +368,10 @@ export default function PhotoEditor({
 
       {/* Mode + rotation tools */}
       <div className="mt-5 flex items-center gap-3">
-        <button type="button" onClick={() => setMode("crop")} disabled={busy} className={toolBtn(mode === "crop")} aria-label={t("form.crop")}>
+        <button type="button" onClick={() => { setMode("crop"); setZoom({ scale: 1, tx: 0, ty: 0 }); }} disabled={busy} className={toolBtn(mode === "crop")} aria-label={t("form.crop")}>
           <CropIcon className="h-5 w-5" />
         </button>
-        <button type="button" onClick={() => setMode("erase")} disabled={busy} className={toolBtn(mode === "erase")} aria-label={t("form.erase")}>
+        <button type="button" onClick={() => { setMode("erase"); setZoom({ scale: 1, tx: 0, ty: 0 }); }} disabled={busy} className={toolBtn(mode === "erase")} aria-label={t("form.erase")}>
           <EraserIcon className="h-5 w-5" />
         </button>
 
@@ -304,18 +385,36 @@ export default function PhotoEditor({
         </button>
       </div>
 
-      {/* Brush size (erase mode only) */}
+      {/* Erase tools: brush/pan toggle, zoom, brush size */}
       {mode === "erase" && (
-        <div className="mt-3 flex items-center gap-3 text-ivory/80">
-          <EraserIcon className="h-4 w-4" />
-          <input
-            type="range"
-            min={8}
-            max={70}
-            value={brush}
-            onChange={(e) => setBrush(Number(e.target.value))}
-            className="w-40 accent-[#d8c39a]"
-          />
+        <div className="mt-3 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setEraseTool("brush")} className={toolBtn(eraseTool === "brush")} aria-label={t("form.erase")}>
+              <EraserIcon className="h-5 w-5" />
+            </button>
+            <button type="button" onClick={() => setEraseTool("pan")} className={toolBtn(eraseTool === "pan")} aria-label={t("form.move")}>
+              <MoveIcon className="h-5 w-5" />
+            </button>
+            <div className="mx-1 h-6 w-px bg-white/15" />
+            <button type="button" onClick={() => zoomBy(1 / 1.3)} className={toolBtn(false)} aria-label="Zoom -">
+              <span className="text-xl leading-none">−</span>
+            </button>
+            <span className="w-10 text-center text-xs text-ivory/70">{Math.round(zoom.scale * 100)}%</span>
+            <button type="button" onClick={() => zoomBy(1.3)} className={toolBtn(false)} aria-label="Zoom +">
+              <span className="text-xl leading-none">+</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-3 text-ivory/80">
+            <EraserIcon className="h-4 w-4" />
+            <input
+              type="range"
+              min={8}
+              max={70}
+              value={brush}
+              onChange={(e) => setBrush(Number(e.target.value))}
+              className="w-40 accent-[#d8c39a]"
+            />
+          </div>
         </div>
       )}
 
