@@ -90,6 +90,49 @@ function keepLargestComponent(alpha: Uint8Array, w: number, h: number) {
   return { label, bestLabel };
 }
 
+/**
+ * Edge-preserving smoothing ("ironing") — non-generative. Averages a pixel with
+ * a blurred copy only in low-contrast areas (soft wrinkle shadows), while strong
+ * edges (logos, prints, seams) are left untouched. It never invents pixels, so
+ * colours, prints and shape stay faithful.
+ */
+function smoothFabric(src: HTMLCanvasElement): HTMLCanvasElement {
+  const w = src.width;
+  const h = src.height;
+
+  const blurred = document.createElement("canvas");
+  blurred.width = w;
+  blurred.height = h;
+  const bctx = blurred.getContext("2d")!;
+  bctx.filter = `blur(${Math.max(2, Math.round(Math.min(w, h) * 0.012))}px)`;
+  bctx.drawImage(src, 0, 0);
+  bctx.filter = "none";
+
+  const sctx = src.getContext("2d", { willReadFrequently: true })!;
+  const o = sctx.getImageData(0, 0, w, h);
+  const od = o.data;
+  const bd = blurred.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
+
+  const amount = 0.75; // max smoothing in flat areas
+  const thr = 46; // edge sensitivity — above this, detail is preserved
+  for (let i = 0; i < od.length; i += 4) {
+    const de =
+      Math.abs(od[i] - bd[i]) +
+      Math.abs(od[i + 1] - bd[i + 1]) +
+      Math.abs(od[i + 2] - bd[i + 2]);
+    const a = Math.max(0, 1 - de / thr) * amount;
+    od[i] = od[i] * (1 - a) + bd[i] * a;
+    od[i + 1] = od[i + 1] * (1 - a) + bd[i + 1] * a;
+    od[i + 2] = od[i + 2] * (1 - a) + bd[i + 2] * a;
+  }
+
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  out.getContext("2d")!.putImageData(o, 0, 0);
+  return out;
+}
+
 const TARGET_ASPECT = 3 / 4; // portrait card ratio used in the dressing grid
 
 /**
@@ -205,16 +248,28 @@ async function buildImages(
   cctx.drawImage(gCanvas, dx, dy);
   cctx.filter = "none";
 
-  // White-background version (grids, try-on)
-  const out = document.createElement("canvas");
-  out.width = cw;
-  out.height = ch;
-  const octx = out.getContext("2d")!;
-  octx.fillStyle = "#ffffff";
-  octx.fillRect(0, 0, cw, ch);
-  octx.drawImage(cut, 0, 0);
+  // White-background version, then edge-preserving smoothing ("ironing")
+  const whiteFlat = document.createElement("canvas");
+  whiteFlat.width = cw;
+  whiteFlat.height = ch;
+  const wfctx = whiteFlat.getContext("2d")!;
+  wfctx.fillStyle = "#ffffff";
+  wfctx.fillRect(0, 0, cw, ch);
+  wfctx.drawImage(cut, 0, 0);
+  const smoothed = smoothFabric(whiteFlat); // opaque, wrinkles softened
 
-  return { white: out.toDataURL("image/png"), cutout: cut.toDataURL("image/png") };
+  // Re-apply the real alpha to get the smoothed transparent cut-out
+  const smoothedCut = document.createElement("canvas");
+  smoothedCut.width = cw;
+  smoothedCut.height = ch;
+  const scctx = smoothedCut.getContext("2d", { willReadFrequently: true })!;
+  scctx.drawImage(smoothed, 0, 0);
+  const sd = scctx.getImageData(0, 0, cw, ch);
+  const alphaSrc = cut.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, cw, ch).data;
+  for (let i = 3; i < sd.data.length; i += 4) sd.data[i] = alphaSrc[i];
+  scctx.putImageData(sd, 0, 0);
+
+  return { white: smoothed.toDataURL("image/png"), cutout: smoothedCut.toDataURL("image/png") };
 }
 
 /** Background removal. Returns { white, cutout }; falls back to the original. */
