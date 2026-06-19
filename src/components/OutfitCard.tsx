@@ -201,11 +201,21 @@ export default function OutfitCard({
                 }`}
               >
                 <div className="flex aspect-square items-center justify-center">
-                  <CutoutImage
-                    src={garment.photo}
-                    alt={garment.name}
-                    className="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-105"
-                  />
+                  {garment.cutout ? (
+                    // True transparent cut-out (correct between-legs gap)
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={garment.cutout}
+                      alt={garment.name}
+                      className="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <CutoutImage
+                      src={garment.photo}
+                      alt={garment.name}
+                      className="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-105"
+                    />
+                  )}
                 </div>
                 <p className="mt-1 truncate text-[10px] leading-tight text-ink/70">{garment.name}</p>
                 {swapEnabled && (

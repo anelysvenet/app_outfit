@@ -12,13 +12,21 @@ export async function PATCH(
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
     const { id } = await params;
-    const body = (await req.json()) as Partial<Garment> & { photoDataUrl?: string };
+    const body = (await req.json()) as Partial<Garment> & {
+      photoDataUrl?: string;
+      cutoutDataUrl?: string;
+    };
 
-    // If the photo was cropped/rotated client-side, persist the new image
+    // If the photo was re-uploaded/edited client-side, persist the new images
     let newPhotoUrl: string | undefined;
     if (body.photoDataUrl?.startsWith("data:")) {
       const { base64, mediaType } = parseDataUrl(body.photoDataUrl);
       newPhotoUrl = await saveImage(base64, mediaType);
+    }
+    let newCutoutUrl: string | undefined;
+    if (body.cutoutDataUrl?.startsWith("data:")) {
+      const c = parseDataUrl(body.cutoutDataUrl);
+      newCutoutUrl = await saveImage(c.base64, c.mediaType);
     }
 
     const updated = await mutateDb((db) => {
@@ -40,6 +48,7 @@ export async function PATCH(
       }
       if (body.evening !== undefined) g.evening = Boolean(body.evening);
       if (newPhotoUrl) g.photo = newPhotoUrl;
+      if (newCutoutUrl) g.cutout = newCutoutUrl;
       // Restore from trash
       if ((body as { restore?: boolean }).restore) {
         g.deleted = false;

@@ -101,6 +101,7 @@ export interface Garment {
   id: string;
   userId: string;
   photo: string;
+  cutout?: string; // version détourée sur fond transparent (rendu collage)
   name: string;
   category: Category;
   type: string;

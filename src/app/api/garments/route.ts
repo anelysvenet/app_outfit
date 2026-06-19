@@ -23,7 +23,10 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
 
-    const body = (await req.json()) as Partial<Garment> & { photoDataUrl?: string };
+    const body = (await req.json()) as Partial<Garment> & {
+      photoDataUrl?: string;
+      cutoutDataUrl?: string;
+    };
     if (!body.photoDataUrl) {
       return NextResponse.json({ error: "Photo requise" }, { status: 400 });
     }
@@ -33,11 +36,17 @@ export async function POST(req: Request) {
 
     const { base64, mediaType } = parseDataUrl(body.photoDataUrl);
     const photo = await saveImage(base64, mediaType);
+    let cutout: string | undefined;
+    if (body.cutoutDataUrl?.startsWith("data:")) {
+      const c = parseDataUrl(body.cutoutDataUrl);
+      cutout = await saveImage(c.base64, c.mediaType);
+    }
 
     const garment: Garment = {
       id: newId(),
       userId: user.id,
       photo,
+      cutout,
       name: body.name?.trim() || "Vêtement",
       category: body.category as Category,
       type: body.type?.trim() || "",

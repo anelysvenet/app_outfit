@@ -79,6 +79,7 @@ export default function GarmentForm({
 }) {
   const t = useT();
   const [photo, setPhoto] = useState<string | null>(existing?.photo ?? null);
+  const [cutout, setCutout] = useState<string | null>(null);
   const [draft, setDraft] = useState<GarmentDraft>(
     existing
       ? {
@@ -166,6 +167,7 @@ export default function GarmentForm({
       const payload = {
         ...draft,
         ...(photo?.startsWith("data:") ? { photoDataUrl: photo } : {}),
+        ...(cutout?.startsWith("data:") ? { cutoutDataUrl: cutout } : {}),
       };
       const res = await fetch(
         isNew ? "/api/garments" : `/api/garments/${existing.id}`,
@@ -210,6 +212,7 @@ export default function GarmentForm({
         <PhotoInput
           value={photo}
           onChange={setPhoto}
+          onCutout={setCutout}
           label={t("form.photo_label")}
         />
         <button

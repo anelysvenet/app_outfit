@@ -6,69 +6,6 @@ import PhotoEditor from "./PhotoEditor";
 import LogoLoader from "./LogoLoader";
 import { CropIcon } from "./icons";
 
-type LogoBox = { x: number; y: number; w: number; h: number };
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const im = new Image();
-    if (!src.startsWith("data:")) im.crossOrigin = "anonymous";
-    im.onload = () => resolve(im);
-    im.onerror = reject;
-    im.src = src;
-  });
-}
-
-/**
- * Paste the real logo/print pixels from the original photo back over the
- * dewrinkled garment, with feathered edges, so generative smoothing never
- * alters logos. Uses source-atop to stay within the garment silhouette.
- */
-async function pasteLogos(
-  mctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  originalSrc: string,
-  boxes: LogoBox[],
-) {
-  if (!boxes.length) return;
-  const orig = await loadImage(originalSrc);
-  const OW = orig.naturalWidth;
-  const OH = orig.naturalHeight;
-
-  for (const b of boxes) {
-    const dw = Math.max(1, Math.round(b.w * w));
-    const dh = Math.max(1, Math.round(b.h * h));
-    const dx = Math.round(b.x * w);
-    const dy = Math.round(b.y * h);
-
-    // Crop the original logo region
-    const fc = document.createElement("canvas");
-    fc.width = dw;
-    fc.height = dh;
-    const fctx = fc.getContext("2d")!;
-    fctx.drawImage(orig, b.x * OW, b.y * OH, b.w * OW, b.h * OH, 0, 0, dw, dh);
-
-    // Feather all four edges so the paste blends into the smoothed fabric
-    const fid = fctx.getImageData(0, 0, dw, dh);
-    const p = fid.data;
-    const fm = Math.max(2, Math.min(dw, dh) * 0.16);
-    for (let y = 0; y < dh; y++) {
-      for (let x = 0; x < dw; x++) {
-        const edge = Math.min(x, y, dw - 1 - x, dh - 1 - y);
-        const f = Math.max(0, Math.min(1, edge / fm));
-        p[(y * dw + x) * 4 + 3] *= f;
-      }
-    }
-    fctx.putImageData(fid, 0, 0);
-
-    // Draw only where the garment already exists (keeps silhouette, no bg)
-    mctx.save();
-    mctx.globalCompositeOperation = "source-atop";
-    mctx.drawImage(fc, dx, dy, dw, dh);
-    mctx.restore();
-  }
-}
-
 /**
  * Decode a file with EXIF orientation already applied (consistent across browsers)
  * and downscale. Orientation of the garment itself is corrected later, after
@@ -156,15 +93,14 @@ function keepLargestComponent(alpha: Uint8Array, w: number, h: number) {
 const TARGET_ASPECT = 3 / 4; // portrait card ratio used in the dressing grid
 
 /**
- * Composite a transparent PNG onto white: keep only the main garment, crop to it,
- * straighten it to portrait, and centre it on a portrait 3:4 white canvas so it
- * sits upright in the dressing overview.
+ * From the background-removed PNG, keep only the main garment, crop to it and
+ * straighten it to portrait. Returns BOTH a transparent cut-out (true alpha —
+ * so the gap between trouser legs is see-through) and the same on a white 3:4
+ * canvas (used in grids and virtual try-on).
  */
-async function compositeOnWhite(
+async function buildImages(
   transparentDataUrl: string,
-  originalSrc?: string,
-  logoBoxes?: LogoBox[],
-): Promise<string> {
+): Promise<{ white: string; cutout: string }> {
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();
@@ -179,15 +115,6 @@ async function compositeOnWhite(
   mask.height = h;
   const mctx = mask.getContext("2d")!;
   mctx.drawImage(img, 0, 0);
-
-  // Restore real logos over the dewrinkled fabric
-  if (originalSrc && logoBoxes && logoBoxes.length) {
-    try {
-      await pasteLogos(mctx, w, h, originalSrc, logoBoxes);
-    } catch (e) {
-      console.warn("[pasteLogos] failed:", e);
-    }
-  }
 
   const imageData = mctx.getImageData(0, 0, w, h);
   const d = imageData.data;
@@ -218,7 +145,7 @@ async function compositeOnWhite(
   }
   mctx.putImageData(imageData, 0, 0);
 
-  // No garment detected → fall back to a plain white composite
+  // No garment detected → fall back to the raw matte on white
   if (maxX < 0) {
     const fb = document.createElement("canvas");
     fb.width = w;
@@ -227,7 +154,7 @@ async function compositeOnWhite(
     fctx.fillStyle = "#ffffff";
     fctx.fillRect(0, 0, w, h);
     fctx.drawImage(mask, 0, 0);
-    return fb.toDataURL("image/png");
+    return { white: fb.toDataURL("image/png"), cutout: mask.toDataURL("image/png") };
   }
 
   // Crop tightly to the garment
@@ -255,7 +182,7 @@ async function compositeOnWhite(
     gH = bw;
   }
 
-  // Fit the garment into a portrait 3:4 canvas with a small margin, centred
+  // Fit the garment into a portrait 3:4 frame with a small margin, centred
   const pad = 0.9; // garment occupies up to 90% of the frame
   const gAspect = gW / gH;
   let cw: number, ch: number;
@@ -266,22 +193,32 @@ async function compositeOnWhite(
     cw = Math.round(gW / pad);
     ch = Math.round(cw / TARGET_ASPECT);
   }
+  const dx = Math.round((cw - gW) / 2);
+  const dy = Math.round((ch - gH) / 2);
 
+  // Transparent cut-out (keeps the real alpha, e.g. between trouser legs)
+  const cut = document.createElement("canvas");
+  cut.width = cw;
+  cut.height = ch;
+  const cctx = cut.getContext("2d")!;
+  cctx.filter = "contrast(1.05) saturate(1.08)";
+  cctx.drawImage(gCanvas, dx, dy);
+  cctx.filter = "none";
+
+  // White-background version (grids, try-on)
   const out = document.createElement("canvas");
   out.width = cw;
   out.height = ch;
   const octx = out.getContext("2d")!;
   octx.fillStyle = "#ffffff";
   octx.fillRect(0, 0, cw, ch);
-  octx.filter = "contrast(1.05) saturate(1.08)";
-  octx.drawImage(gCanvas, Math.round((cw - gW) / 2), Math.round((ch - gH) / 2));
-  octx.filter = "none";
+  octx.drawImage(cut, 0, 0);
 
-  return out.toDataURL("image/png"); // PNG → artefact-free white background
+  return { white: out.toDataURL("image/png"), cutout: cut.toDataURL("image/png") };
 }
 
-/** Send photo to server for dewrinkling + background removal. Falls back to original on error. */
-async function processPhoto(dataUrl: string): Promise<string> {
+/** Background removal. Returns { white, cutout }; falls back to the original. */
+async function processPhoto(dataUrl: string): Promise<{ white: string; cutout?: string }> {
   try {
     const padded = await padImage(dataUrl);
     const res = await fetch("/api/garments/process", {
@@ -289,25 +226,25 @@ async function processPhoto(dataUrl: string): Promise<string> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ photoDataUrl: padded }),
     });
-    if (!res.ok) return dataUrl;
+    if (!res.ok) return { white: dataUrl };
     const data = await res.json();
-    if (data.skipped || !data.transparentDataUrl) return dataUrl;
-    // Pass the original padded image + detected logo boxes so the real logos
-    // are pasted back over the dewrinkled result.
-    return await compositeOnWhite(data.transparentDataUrl, padded, data.logoBoxes ?? []);
+    if (data.skipped || !data.transparentDataUrl) return { white: dataUrl };
+    return await buildImages(data.transparentDataUrl);
   } catch {
-    return dataUrl;
+    return { white: dataUrl };
   }
 }
 
 export default function PhotoInput({
   value,
   onChange,
+  onCutout,
   label,
   aspect = "aspect-[3/4]",
 }: {
   value: string | null;
   onChange: (dataUrl: string) => void;
+  onCutout?: (dataUrl: string) => void;
   label: string;
   aspect?: string;
 }) {
@@ -333,10 +270,11 @@ export default function PhotoInput({
             onChange(dataUrl); // show preview immediately
             setLoading(false);
 
-            // Dewrinkle + background removal (non-blocking, falls back on error)
+            // Background removal (non-blocking, falls back on error)
             setProcessing(true);
             const processed = await processPhoto(dataUrl);
-            onChange(processed);
+            onChange(processed.white);
+            if (processed.cutout) onCutout?.(processed.cutout);
           } finally {
             setLoading(false);
             setProcessing(false);
