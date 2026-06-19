@@ -159,11 +159,21 @@ const ColorimetrySchema = z.object({
     .enum(["chaud", "froid", "neutre"])
     .describe("Sous-ton de la peau"),
   palette: z
-    .array(z.string())
-    .describe("6 à 10 couleurs (noms simples) qui mettent la personne en valeur"),
+    .array(
+      z.object({
+        name: z.string().describe("Nom court de la couleur"),
+        hex: z.string().describe("Code couleur hexadécimal exact, ex: #c98ba0"),
+      }),
+    )
+    .describe("6 à 10 couleurs qui mettent la personne en valeur, avec leur hex"),
   avoid: z
-    .array(z.string())
-    .describe("3 à 6 couleurs (noms simples) à éviter"),
+    .array(
+      z.object({
+        name: z.string().describe("Nom court de la couleur"),
+        hex: z.string().describe("Code couleur hexadécimal exact"),
+      }),
+    )
+    .describe("3 à 6 couleurs à éviter, avec leur hex"),
   description: z
     .string()
     .describe("Explication courte et bienveillante du résultat, 2-3 phrases"),

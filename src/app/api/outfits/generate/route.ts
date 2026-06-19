@@ -55,7 +55,14 @@ export async function POST(req: Request) {
       ratedOutfits,
       styleRefs,
       baseGarment,
-      colorimetry: user.colorimetry,
+      colorimetry: user.colorimetry
+        ? {
+            season: user.colorimetry.season,
+            undertone: user.colorimetry.undertone,
+            palette: user.colorimetry.palette.map((c) => c.name),
+            avoid: user.colorimetry.avoid.map((c) => c.name),
+          }
+        : undefined,
       lang: user.language,
     });
 

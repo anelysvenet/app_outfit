@@ -71,11 +71,16 @@ export const OCCASIONS = [
   "Cérémonie",
 ] as const;
 
+export interface ColorSwatch {
+  name: string;
+  hex: string;
+}
+
 export interface Colorimetry {
   season: string; // Printemps, Été, Automne, Hiver
   undertone: string; // chaud, froid, neutre
-  palette: string[]; // couleurs qui mettent en valeur
-  avoid: string[]; // couleurs à éviter
+  palette: ColorSwatch[]; // couleurs qui mettent en valeur (nom + hex)
+  avoid: ColorSwatch[]; // couleurs à éviter (nom + hex)
   description: string;
   photo?: string; // photo du visage pour la visualisation « draping »
 }

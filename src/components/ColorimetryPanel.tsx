@@ -3,7 +3,13 @@
 import { useRef, useState } from "react";
 import LogoLoader from "./LogoLoader";
 import { useT } from "@/contexts/LanguageContext";
-import type { Colorimetry } from "@/lib/types";
+import type { Colorimetry, ColorSwatch } from "@/lib/types";
+
+// Tolerates legacy data where a colour was just a string
+function toSwatch(c: ColorSwatch | string): ColorSwatch {
+  if (typeof c === "string") return { name: c, hex: "#c9bfb0" };
+  return { name: c.name, hex: c.hex || "#c9bfb0" };
+}
 
 async function fileToDataUrl(file: File): Promise<string> {
   const raw = await new Promise<string>((resolve, reject) => {
@@ -26,55 +32,6 @@ async function fileToDataUrl(file: File): Promise<string> {
   c.height = Math.round(img.height * scale);
   c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
   return c.toDataURL("image/jpeg", 0.85);
-}
-
-// Map common French colour names to hex for the swatches
-const COLOR_HEX: Record<string, string> = {
-  noir: "#1c1917",
-  blanc: "#f8f5f0",
-  ecru: "#e8dfce",
-  beige: "#d8c4a5",
-  camel: "#b08d57",
-  marron: "#6b4a2b",
-  chocolat: "#4a2f1c",
-  taupe: "#8b7d6b",
-  gris: "#9aa0a6",
-  anthracite: "#3a3f44",
-  argent: "#c0c0c0",
-  marine: "#1f2a44",
-  bleu: "#3b6ea5",
-  turquoise: "#3fb6b2",
-  vert: "#3f7d54",
-  emeraude: "#1f7a5a",
-  olive: "#6b6f3a",
-  kaki: "#7a7350",
-  rouge: "#b23b3b",
-  bordeaux: "#6e2433",
-  corail: "#e6766b",
-  rose: "#e3a3b5",
-  fuchsia: "#b23a82",
-  violet: "#6b4a8a",
-  lavande: "#b9a7d6",
-  prune: "#5e2e4d",
-  jaune: "#e9c44c",
-  moutarde: "#c79a3a",
-  orange: "#d97a3a",
-  peche: "#f0bf9b",
-  dore: "#c9a534",
-  creme: "#f2ead9",
-};
-
-function normalize(s: string): string {
-  return s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-}
-
-function hexFor(name: string): string {
-  const key = normalize(name);
-  if (COLOR_HEX[key]) return COLOR_HEX[key];
-  for (const k of Object.keys(COLOR_HEX)) {
-    if (key.includes(k) || k.includes(key)) return COLOR_HEX[k];
-  }
-  return "#c9bfb0";
 }
 
 export default function ColorimetryPanel({ initial }: { initial?: Colorimetry | null }) {
@@ -141,7 +98,7 @@ export default function ColorimetryPanel({ initial }: { initial?: Colorimetry | 
                 {/* Bande de couleurs recommandées, comme un tissu drapé sous le visage */}
                 <div className="absolute inset-x-0 bottom-0 flex h-[30%]">
                   {result.palette.slice(0, 7).map((c, i) => (
-                    <div key={c + i} className="flex-1" style={{ background: hexFor(c) }} />
+                    <div key={i} className="flex-1" style={{ background: toSwatch(c).hex }} />
                   ))}
                   <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-black/15 to-transparent" />
                 </div>
@@ -161,18 +118,21 @@ export default function ColorimetryPanel({ initial }: { initial?: Colorimetry | 
             {t("colorimetry.flattering")}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {result.palette.map((c) => (
-              <span
-                key={c}
-                className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs shadow-card"
-              >
+            {result.palette.map((raw, i) => {
+              const c = toSwatch(raw);
+              return (
                 <span
-                  className="h-3.5 w-3.5 rounded-full ring-1 ring-black/10"
-                  style={{ background: hexFor(c) }}
-                />
-                {c}
-              </span>
-            ))}
+                  key={i}
+                  className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs shadow-card"
+                >
+                  <span
+                    className="h-3.5 w-3.5 rounded-full ring-1 ring-black/10"
+                    style={{ background: c.hex }}
+                  />
+                  {c.name}
+                </span>
+              );
+            })}
           </div>
 
           {result.avoid?.length > 0 && (
@@ -181,18 +141,21 @@ export default function ColorimetryPanel({ initial }: { initial?: Colorimetry | 
                 {t("colorimetry.avoid")}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {result.avoid.map((c) => (
-                  <span
-                    key={c}
-                    className="flex items-center gap-1.5 rounded-full bg-white/60 px-2.5 py-1 text-xs text-smoke line-through"
-                  >
+                {result.avoid.map((raw, i) => {
+                  const c = toSwatch(raw);
+                  return (
                     <span
-                      className="h-3.5 w-3.5 rounded-full ring-1 ring-black/10"
-                      style={{ background: hexFor(c) }}
-                    />
-                    {c}
-                  </span>
-                ))}
+                      key={i}
+                      className="flex items-center gap-1.5 rounded-full bg-white/60 px-2.5 py-1 text-xs text-smoke line-through"
+                    >
+                      <span
+                        className="h-3.5 w-3.5 rounded-full ring-1 ring-black/10"
+                        style={{ background: c.hex }}
+                      />
+                      {c.name}
+                    </span>
+                  );
+                })}
               </div>
             </>
           )}
