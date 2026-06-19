@@ -171,10 +171,13 @@ export default function PhotoEditor({
     const cv = eraseRef.current;
     if (!cv) return;
     const r = cv.getBoundingClientRect();
+    if (!r.width || !r.height) return;
     const sx = cv.width / r.width;
     const x = (e.clientX - r.left) * sx;
     const y = (e.clientY - r.top) * (cv.height / r.height);
-    const ctx = cv.getContext("2d")!;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const ctx = cv.getContext("2d");
+    if (!ctx) return;
     ctx.save();
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
@@ -223,11 +226,12 @@ export default function PhotoEditor({
     if (pointers.current.size >= 2 && pinch.current) {
       const [p1, p2] = [...pointers.current.values()];
       const d = dist2(p1, p2);
+      if (!pinch.current.dist || !Number.isFinite(d)) return;
       const mx = (p1.x + p2.x) / 2;
       const my = (p1.y + p2.y) / 2;
       const scale = clamp((pinch.current.scale * d) / pinch.current.dist, 1, 5);
       setZoom({
-        scale,
+        scale: Number.isFinite(scale) ? scale : 1,
         tx: pinch.current.tx + (mx - pinch.current.mx),
         ty: pinch.current.ty + (my - pinch.current.my),
       });

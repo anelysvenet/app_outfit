@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useT } from "@/contexts/LanguageContext";
 import PhotoEditor from "./PhotoEditor";
 import LogoLoader from "./LogoLoader";
+import ErrorBoundary from "./ErrorBoundary";
 import { CropIcon } from "./icons";
 
 /**
@@ -504,6 +505,7 @@ export default function PhotoInput({
       )}
 
       {editing && value && (
+        <ErrorBoundary onError={() => setEditing(false)}>
         <PhotoEditor
           src={value}
           onClose={() => setEditing(false)}
@@ -542,6 +544,7 @@ export default function PhotoInput({
             }
           }}
         />
+        </ErrorBoundary>
       )}
     </div>
   );
