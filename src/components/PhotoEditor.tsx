@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/contexts/LanguageContext";
-import { RotateCwIcon, RotateCcwIcon } from "./icons";
+import { RotateCwIcon, RotateCcwIcon, CropIcon, EraserIcon } from "./icons";
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -11,8 +11,6 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 function loadImg(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    // Remote images (e.g. existing garment on Vercel Blob) must be CORS-enabled,
-    // otherwise the canvas is tainted and toDataURL() throws.
     if (!src.startsWith("data:")) img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = reject;
@@ -56,6 +54,9 @@ async function cropTo(src: string, r: Rect): Promise<string> {
 
 const FULL: Rect = { x: 0, y: 0, w: 1, h: 1 };
 const MIN = 0.1;
+// Checkerboard so erased (transparent) areas are visible
+const CHECKER =
+  "repeating-conic-gradient(#d9d2c7 0% 25%, #f1ece3 0% 50%) 50% / 18px 18px";
 
 export default function PhotoEditor({
   src,
@@ -68,15 +69,17 @@ export default function PhotoEditor({
 }) {
   const t = useT();
   const [working, setWorking] = useState(src);
+  const [mode, setMode] = useState<"crop" | "erase">("crop");
   const [rect, setRect] = useState<Rect>(FULL);
+  const [brush, setBrush] = useState(26);
   const [busy, setBusy] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const drag = useRef<{ mode: string; sx: number; sy: number; orig: Rect } | null>(null);
 
+  // ── Crop drag (window listeners, rAF-throttled) ──
   useEffect(() => {
     let raf = 0;
     let pending: Rect | null = null;
-
     const flush = () => {
       raf = 0;
       if (pending) {
@@ -84,7 +87,6 @@ export default function PhotoEditor({
         pending = null;
       }
     };
-
     function onMove(e: PointerEvent) {
       if (!drag.current || !imgRef.current) return;
       e.preventDefault();
@@ -110,7 +112,6 @@ export default function PhotoEditor({
         }
         if (m.includes("s")) h = clamp(h + dy, MIN, 1 - y);
       }
-      // Coalesce to one state update per animation frame for smoothness
       pending = { x, y, w, h };
       if (!raf) raf = requestAnimationFrame(flush);
     }
@@ -128,11 +129,54 @@ export default function PhotoEditor({
     };
   }, []);
 
-  function startDrag(e: React.PointerEvent, mode: string) {
+  function startDrag(e: React.PointerEvent, m: string) {
     e.preventDefault();
     e.stopPropagation();
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-    drag.current = { mode, sx: e.clientX, sy: e.clientY, orig: { ...rect } };
+    drag.current = { mode: m, sx: e.clientX, sy: e.clientY, orig: { ...rect } };
+  }
+
+  // ── Erase canvas ──
+  const eraseRef = useRef<HTMLCanvasElement>(null);
+  const painting = useRef(false);
+  const eraseInitFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (mode !== "erase") return;
+    const cv = eraseRef.current;
+    if (!cv || eraseInitFor.current === working) return;
+    let cancelled = false;
+    (async () => {
+      const img = await loadImg(working);
+      if (cancelled || !eraseRef.current) return;
+      const MAX = 1400;
+      const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      cv.width = Math.round(img.naturalWidth * scale);
+      cv.height = Math.round(img.naturalHeight * scale);
+      const ctx = cv.getContext("2d")!;
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(img, 0, 0, cv.width, cv.height);
+      eraseInitFor.current = working;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, working]);
+
+  function eraseAt(e: React.PointerEvent) {
+    const cv = eraseRef.current;
+    if (!cv) return;
+    const r = cv.getBoundingClientRect();
+    const sx = cv.width / r.width;
+    const x = (e.clientX - r.left) * sx;
+    const y = (e.clientY - r.top) * (cv.height / r.height);
+    const ctx = cv.getContext("2d")!;
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath();
+    ctx.arc(x, y, brush * sx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   async function doRotate(dir: "cw" | "ccw") {
@@ -140,6 +184,7 @@ export default function PhotoEditor({
     try {
       setWorking(await rotate(working, dir));
       setRect(FULL);
+      eraseInitFor.current = null; // re-init erase canvas for the rotated image
     } finally {
       setBusy(false);
     }
@@ -148,129 +193,138 @@ export default function PhotoEditor({
   async function apply() {
     setBusy(true);
     try {
+      if (mode === "erase" && eraseRef.current && eraseInitFor.current === working) {
+        onApply(eraseRef.current.toDataURL("image/png"));
+        return;
+      }
       const isFull = rect.x === 0 && rect.y === 0 && rect.w === 1 && rect.h === 1;
-      const result = isFull ? working : await cropTo(working, rect);
-      onApply(result);
+      onApply(isFull ? working : await cropTo(working, rect));
     } catch (err) {
       console.error("[PhotoEditor] apply failed:", err);
-      // Last resort: hand back whatever we currently have so the action isn't a no-op
       onApply(working);
     } finally {
       setBusy(false);
     }
   }
 
-  // Large transparent hit area with a smaller visible dot — easy to grab on touch
-  const handleWrap =
-    "absolute flex h-9 w-9 items-center justify-center";
-  const dot =
-    "h-4 w-4 rounded-full border-2 border-white bg-champagne shadow pointer-events-none";
+  const handleWrap = "absolute flex h-9 w-9 items-center justify-center";
+  const dot = "h-4 w-4 rounded-full border-2 border-white bg-champagne shadow pointer-events-none";
+  const toolBtn = (active: boolean) =>
+    `flex h-11 w-11 items-center justify-center rounded-full transition cursor-pointer ${
+      active ? "bg-champagne text-night" : "bg-white/10 text-ivory hover:bg-white/20"
+    }`;
 
   return (
     <div
       className="fixed inset-0 z-[120] flex flex-col items-center justify-center overscroll-none bg-night/85 p-4 backdrop-blur-sm"
       style={{ touchAction: "none" }}
     >
-      <div className="relative inline-block max-h-[68vh] max-w-[88vw]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          ref={imgRef}
-          src={working}
-          alt=""
-          draggable={false}
-          crossOrigin={working.startsWith("data:") ? undefined : "anonymous"}
-          className="block max-h-[68vh] max-w-[88vw] select-none rounded-lg"
-        />
-        {/* Crop rectangle with dimmed exterior */}
-        <div
-          onPointerDown={(e) => startDrag(e, "move")}
-          className="absolute cursor-move"
-          style={{
-            left: `${rect.x * 100}%`,
-            top: `${rect.y * 100}%`,
-            width: `${rect.w * 100}%`,
-            height: `${rect.h * 100}%`,
-            boxShadow: "0 0 0 9999px rgba(20,18,16,0.55)",
-            border: "1.5px solid rgba(255,255,255,0.9)",
-            touchAction: "none",
-          }}
-        >
-          {/* thirds guides */}
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/3 top-0 h-full w-px bg-white/30" />
-            <div className="absolute left-2/3 top-0 h-full w-px bg-white/30" />
-            <div className="absolute top-1/3 left-0 w-full h-px bg-white/30" />
-            <div className="absolute top-2/3 left-0 w-full h-px bg-white/30" />
+      <div className="relative inline-block max-h-[64vh] max-w-[88vw]">
+        {mode === "crop" ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={imgRef}
+              src={working}
+              alt=""
+              draggable={false}
+              crossOrigin={working.startsWith("data:") ? undefined : "anonymous"}
+              className="block max-h-[64vh] max-w-[88vw] select-none rounded-lg"
+            />
+            <div
+              onPointerDown={(e) => startDrag(e, "move")}
+              className="absolute cursor-move"
+              style={{
+                left: `${rect.x * 100}%`,
+                top: `${rect.y * 100}%`,
+                width: `${rect.w * 100}%`,
+                height: `${rect.h * 100}%`,
+                boxShadow: "0 0 0 9999px rgba(20,18,16,0.55)",
+                border: "1.5px solid rgba(255,255,255,0.9)",
+                touchAction: "none",
+              }}
+            >
+              <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-1/3 top-0 h-full w-px bg-white/30" />
+                <div className="absolute left-2/3 top-0 h-full w-px bg-white/30" />
+                <div className="absolute top-1/3 left-0 w-full h-px bg-white/30" />
+                <div className="absolute top-2/3 left-0 w-full h-px bg-white/30" />
+              </div>
+              <div className={`${handleWrap} cursor-nwse-resize`} style={{ left: -18, top: -18, touchAction: "none" }} onPointerDown={(e) => startDrag(e, "nw")}>
+                <span className={dot} />
+              </div>
+              <div className={`${handleWrap} cursor-nesw-resize`} style={{ right: -18, top: -18, touchAction: "none" }} onPointerDown={(e) => startDrag(e, "ne")}>
+                <span className={dot} />
+              </div>
+              <div className={`${handleWrap} cursor-nesw-resize`} style={{ left: -18, bottom: -18, touchAction: "none" }} onPointerDown={(e) => startDrag(e, "sw")}>
+                <span className={dot} />
+              </div>
+              <div className={`${handleWrap} cursor-nwse-resize`} style={{ right: -18, bottom: -18, touchAction: "none" }} onPointerDown={(e) => startDrag(e, "se")}>
+                <span className={dot} />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="rounded-lg" style={{ background: CHECKER }}>
+            <canvas
+              ref={eraseRef}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                painting.current = true;
+                (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+                eraseAt(e);
+              }}
+              onPointerMove={(e) => {
+                if (painting.current) eraseAt(e);
+              }}
+              onPointerUp={() => (painting.current = false)}
+              onPointerCancel={() => (painting.current = false)}
+              className="block max-h-[64vh] max-w-[88vw] cursor-crosshair touch-none rounded-lg"
+            />
           </div>
-          {/* corner handles — large touch targets */}
-          <div
-            className={`${handleWrap} cursor-nwse-resize`}
-            style={{ left: -18, top: -18, touchAction: "none" }}
-            onPointerDown={(e) => startDrag(e, "nw")}
-          >
-            <span className={dot} />
-          </div>
-          <div
-            className={`${handleWrap} cursor-nesw-resize`}
-            style={{ right: -18, top: -18, touchAction: "none" }}
-            onPointerDown={(e) => startDrag(e, "ne")}
-          >
-            <span className={dot} />
-          </div>
-          <div
-            className={`${handleWrap} cursor-nesw-resize`}
-            style={{ left: -18, bottom: -18, touchAction: "none" }}
-            onPointerDown={(e) => startDrag(e, "sw")}
-          >
-            <span className={dot} />
-          </div>
-          <div
-            className={`${handleWrap} cursor-nwse-resize`}
-            style={{ right: -18, bottom: -18, touchAction: "none" }}
-            onPointerDown={(e) => startDrag(e, "se")}
-          >
-            <span className={dot} />
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Controls */}
-      <div className="mt-6 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => doRotate("ccw")}
-          disabled={busy}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-ivory transition hover:bg-white/20 cursor-pointer"
-          aria-label={t("form.rotate_left")}
-        >
+      {/* Mode + rotation tools */}
+      <div className="mt-5 flex items-center gap-3">
+        <button type="button" onClick={() => setMode("crop")} disabled={busy} className={toolBtn(mode === "crop")} aria-label={t("form.crop")}>
+          <CropIcon className="h-5 w-5" />
+        </button>
+        <button type="button" onClick={() => setMode("erase")} disabled={busy} className={toolBtn(mode === "erase")} aria-label={t("form.erase")}>
+          <EraserIcon className="h-5 w-5" />
+        </button>
+
+        <div className="mx-1 h-6 w-px bg-white/15" />
+
+        <button type="button" onClick={() => doRotate("ccw")} disabled={busy} className={toolBtn(false)} aria-label={t("form.rotate_left")}>
           <RotateCcwIcon className="h-5 w-5" />
         </button>
-        <button
-          type="button"
-          onClick={() => doRotate("cw")}
-          disabled={busy}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-ivory transition hover:bg-white/20 cursor-pointer"
-          aria-label={t("form.rotate_right")}
-        >
+        <button type="button" onClick={() => doRotate("cw")} disabled={busy} className={toolBtn(false)} aria-label={t("form.rotate_right")}>
           <RotateCwIcon className="h-5 w-5" />
         </button>
+      </div>
 
-        <div className="mx-2 h-6 w-px bg-white/15" />
+      {/* Brush size (erase mode only) */}
+      {mode === "erase" && (
+        <div className="mt-3 flex items-center gap-3 text-ivory/80">
+          <EraserIcon className="h-4 w-4" />
+          <input
+            type="range"
+            min={8}
+            max={70}
+            value={brush}
+            onChange={(e) => setBrush(Number(e.target.value))}
+            className="w-40 accent-[#d8c39a]"
+          />
+        </div>
+      )}
 
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={busy}
-          className="rounded-full px-5 py-2.5 text-sm text-ivory/80 transition hover:text-ivory cursor-pointer"
-        >
+      {/* Actions */}
+      <div className="mt-5 flex items-center gap-3">
+        <button type="button" onClick={onClose} disabled={busy} className="rounded-full px-5 py-2.5 text-sm text-ivory/80 transition hover:text-ivory cursor-pointer">
           {t("form.cancel")}
         </button>
-        <button
-          type="button"
-          onClick={apply}
-          disabled={busy}
-          className="rounded-full bg-champagne px-6 py-2.5 text-sm font-medium text-night transition hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
-        >
+        <button type="button" onClick={apply} disabled={busy} className="rounded-full bg-champagne px-6 py-2.5 text-sm font-medium text-night transition hover:scale-[1.03] active:scale-[0.98] cursor-pointer">
           {t("form.apply")}
         </button>
       </div>

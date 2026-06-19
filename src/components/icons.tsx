@@ -112,6 +112,16 @@ export function SwapIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function EraserIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M7.5 20.5 3.5 16.5a2 2 0 0 1 0-2.8l8-8a2 2 0 0 1 2.8 0l4.2 4.2a2 2 0 0 1 0 2.8l-7.5 7.5" />
+      <path d="M21 21H8" />
+      <path d="m9 12 4 4" />
+    </svg>
+  );
+}
+
 export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

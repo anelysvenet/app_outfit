@@ -67,13 +67,16 @@ export async function POST(req: Request) {
     const { base64, mediaType } = parseDataUrl(photoDataUrl);
     const imageUrl = await saveImage(base64, mediaType);
 
-    // In parallel: logos to restore, ironed RGB (FLUX), and the matte/alpha
+    // In parallel: logos + ironability, ironed RGB (FLUX), and the matte/alpha
     // computed on the ORIGINAL (so the gap between trouser legs stays cut out).
-    const [logoBoxes, ironedDataUrl, birefRes] = await Promise.all([
-      detectLogos(base64, mediaType).catch(() => []),
+    const [detection, ironedRaw, birefRes] = await Promise.all([
+      detectLogos(base64, mediaType).catch(() => ({ logos: [], ironable: true })),
       dewrinkle(imageUrl),
       falPost("fal-ai/birefnet", { image_url: imageUrl, model: "General Use (Heavy)" }),
     ]);
+    const logoBoxes = detection.logos;
+    // Don't iron bags, shoes, leather goods, jewelry… — keep them as-is
+    const ironedDataUrl = detection.ironable ? ironedRaw : null;
 
     if (!birefRes.ok) {
       console.error("[birefnet] error:", birefRes.status, await birefRes.text().catch(() => ""));

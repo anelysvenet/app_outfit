@@ -234,16 +234,22 @@ const LogoDetectionSchema = z.object({
       }),
     )
     .describe("Tight bounding boxes around printed logos, brand text or graphic prints. Empty if none."),
+  ironable: z
+    .boolean()
+    .describe(
+      "true ONLY if this is a soft fabric garment that can be ironed (tops, dresses, trousers, knitwear…). false for bags, shoes, leather goods, jewelry, watches, sunglasses, hats and other structured/rigid accessories.",
+    ),
 });
 
 export type LogoBox = { x: number; y: number; w: number; h: number };
+export type LogoDetection = { logos: LogoBox[]; ironable: boolean };
 
-export async function detectLogos(base64: string, mediaType: string): Promise<LogoBox[]> {
+export async function detectLogos(base64: string, mediaType: string): Promise<LogoDetection> {
   const response = await client().messages.parse({
     model: MODEL,
     max_tokens: 1024,
     system:
-      "You locate printed logos, brand marks, slogans, embroidered emblems and graphic prints on a single garment photo. Return TIGHT bounding boxes as fractions of the image (0 to 1). Ignore plain fabric, buttons, zips and seams. If there is no prominent logo/print/text, return an empty list.",
+      "You analyse a single fashion item photo. (1) Locate printed logos, brand marks, slogans, embroidered emblems and graphic prints — return TIGHT bounding boxes as fractions of the image (0 to 1); ignore plain fabric, buttons, zips and seams; empty list if none. (2) Decide whether the item is a soft fabric garment that can be ironed.",
     messages: [
       {
         role: "user",
@@ -258,7 +264,7 @@ export async function detectLogos(base64: string, mediaType: string): Promise<Lo
           },
           {
             type: "text",
-            text: "Detect every logo, brand text or graphic print on this garment and return their bounding boxes.",
+            text: "Detect logos/prints (bounding boxes) and tell whether this item is an ironable fabric garment.",
           },
         ],
       },
@@ -268,9 +274,8 @@ export async function detectLogos(base64: string, mediaType: string): Promise<Lo
     },
   });
 
-  const boxes = response.parsed_output?.logos ?? [];
-  // Sanitize: clamp to [0,1], drop empty or near-full-image boxes (not real logos)
-  return boxes
+  const out = response.parsed_output;
+  const logos = (out?.logos ?? [])
     .map((b) => ({
       x: Math.max(0, Math.min(1, b.x)),
       y: Math.max(0, Math.min(1, b.y)),
@@ -279,6 +284,7 @@ export async function detectLogos(base64: string, mediaType: string): Promise<Lo
     }))
     .filter((b) => b.w > 0.02 && b.h > 0.02 && b.w < 0.95 && b.h < 0.95)
     .slice(0, 5);
+  return { logos, ironable: out?.ironable ?? true };
 }
 
 // ---------------------------------------------------------------------------
