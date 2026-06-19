@@ -148,6 +148,68 @@ export async function analyzeStylePhoto(
 }
 
 // ---------------------------------------------------------------------------
+// Test de colorimétrie (analyse de saison à partir d'une photo du visage)
+// ---------------------------------------------------------------------------
+
+const ColorimetrySchema = z.object({
+  season: z
+    .enum(["Printemps", "Été", "Automne", "Hiver"])
+    .describe("Saison colorimétrique dominante"),
+  undertone: z
+    .enum(["chaud", "froid", "neutre"])
+    .describe("Sous-ton de la peau"),
+  palette: z
+    .array(z.string())
+    .describe("6 à 10 couleurs (noms simples) qui mettent la personne en valeur"),
+  avoid: z
+    .array(z.string())
+    .describe("3 à 6 couleurs (noms simples) à éviter"),
+  description: z
+    .string()
+    .describe("Explication courte et bienveillante du résultat, 2-3 phrases"),
+});
+
+export type ColorimetryAnalysis = z.infer<typeof ColorimetrySchema>;
+
+export async function analyzeColorimetry(
+  base64: string,
+  mediaType: string,
+  lang?: string,
+): Promise<ColorimetryAnalysis> {
+  const response = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 1500,
+    system:
+      `You are an expert in seasonal color analysis (colorimétrie). From a natural face photo (no filter, no makeup, no jewelry), determine the person's seasonal color type, skin undertone, the colors that flatter them and the ones to avoid. Be encouraging and concrete. ${langInstruction(lang)}`,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+              data: base64,
+            },
+          },
+          {
+            type: "text",
+            text: "Perform a seasonal color analysis: season, skin undertone, flattering color palette and colors to avoid.",
+          },
+        ],
+      },
+    ],
+    output_config: { format: zodOutputFormat(ColorimetrySchema) },
+  });
+
+  if (!response.parsed_output) {
+    throw new Error("L'analyse colorimétrique a échoué, réessayez.");
+  }
+  return response.parsed_output;
+}
+
+// ---------------------------------------------------------------------------
 // Détection des logos / imprimés (pour les préserver lors du défroissage)
 // ---------------------------------------------------------------------------
 
@@ -246,6 +308,7 @@ export interface GenerationContext {
   ratedOutfits: Outfit[];
   styleRefs?: { description?: string; colors?: string[]; styles?: string[] }[];
   baseGarment?: Garment;
+  colorimetry?: { season: string; undertone: string; palette: string[]; avoid: string[] };
   lang?: string;
 }
 
@@ -314,6 +377,9 @@ ${tasteHistory.length ? JSON.stringify(tasteHistory, null, 1) : "Aucune note pou
 
 TENUES DE RÉFÉRENCE DE L'UTILISATEUR (photos de tenues qu'il/elle porte déjà dans la vraie vie — inspire-toi fortement de ces associations, coupes et palettes pour rester FIDÈLE à son style personnel) :
 ${ctx.styleRefs && ctx.styleRefs.length ? JSON.stringify(ctx.styleRefs, null, 1) : "Aucune photo de référence fournie."}
+
+COLORIMÉTRIE DE L'UTILISATEUR (analyse de saison — privilégie les couleurs qui le/la mettent en valeur, évite celles à proscrire, sans jamais exclure une pièce indispensable de la garde-robe) :
+${ctx.colorimetry ? `Saison ${ctx.colorimetry.season}, sous-ton ${ctx.colorimetry.undertone}. À privilégier : ${ctx.colorimetry.palette.join(", ")}. À éviter : ${ctx.colorimetry.avoid.join(", ")}.` : "Non renseignée."}
 
 RÈGLES DE COMPOSITION :
 1. Utilise UNIQUEMENT des vêtements présents dans la garde-robe, référencés par leur id exact.

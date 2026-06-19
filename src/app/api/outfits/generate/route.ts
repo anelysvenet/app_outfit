@@ -55,6 +55,7 @@ export async function POST(req: Request) {
       ratedOutfits,
       styleRefs,
       baseGarment,
+      colorimetry: user.colorimetry,
       lang: user.language,
     });
 

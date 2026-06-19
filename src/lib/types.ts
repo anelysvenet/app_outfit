@@ -71,6 +71,14 @@ export const OCCASIONS = [
   "Cérémonie",
 ] as const;
 
+export interface Colorimetry {
+  season: string; // Printemps, Été, Automne, Hiver
+  undertone: string; // chaud, froid, neutre
+  palette: string[]; // couleurs qui mettent en valeur
+  avoid: string[]; // couleurs à éviter
+  description: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -84,6 +92,7 @@ export interface User {
   currency?: string;
   subscription?: "free" | "premium";
   promoCode?: string;
+  colorimetry?: Colorimetry;
   createdAt: string;
 }
 

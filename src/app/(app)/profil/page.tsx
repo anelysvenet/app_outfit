@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import PhotoInput from "@/components/PhotoInput";
 import YourLooks from "@/components/YourLooks";
-import { STYLES } from "@/lib/types";
+import ColorimetryPanel from "@/components/ColorimetryPanel";
+import { STYLES, type Colorimetry } from "@/lib/types";
 import { SettingsIcon } from "@/components/icons";
 import SettingsDrawer from "@/components/SettingsDrawer";
 import { useT } from "@/contexts/LanguageContext";
@@ -20,6 +21,7 @@ interface Me {
   currency?: string;
   subscription?: string;
   promoCode?: string;
+  colorimetry?: Colorimetry;
 }
 
 export default function ProfilePage() {
@@ -86,7 +88,7 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      <div className="mt-10 grid gap-10 sm:grid-cols-[220px_1fr]">
+      <div className="mt-10 grid gap-10 lg:grid-cols-[210px_1fr_300px]">
         <div>
           <h2 className="font-display text-xl">{t("profile.silhouette")}</h2>
           <p className="mb-3 mt-1 text-xs text-smoke leading-relaxed">
@@ -165,6 +167,9 @@ export default function ProfilePage() {
             {saved && <span className="text-sm text-gold">{t("profile.saved")}</span>}
           </div>
         </div>
+
+        {/* Colorimétrie (optionnel) */}
+        <ColorimetryPanel initial={me.colorimetry ?? null} />
       </div>
 
       {/* Tenues par vous */}
