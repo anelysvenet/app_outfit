@@ -32,7 +32,7 @@ async function dewrinkle(imageUrl: string): Promise<string | null> {
       image_url: imageUrl,
       prompt:
         "the exact same clothing item, fabric perfectly ironed and steamed, completely smooth, wrinkle-free, flat even textile, no creases no folds, identical color shape and design, professional fashion e-commerce product photo on plain background, sharp focus",
-      strength: 0.4,
+      strength: 0.28,
       num_inference_steps: 30,
       guidance_scale: 3.5,
       seed: 42,
@@ -72,7 +72,12 @@ export async function POST(req: Request) {
     const [detection, ironedRaw, birefRes] = await Promise.all([
       detectLogos(base64, mediaType).catch(() => ({ logos: [], ironable: true })),
       dewrinkle(imageUrl),
-      falPost("fal-ai/birefnet", { image_url: imageUrl, model: "General Use (Heavy)" }),
+      falPost("fal-ai/birefnet", {
+        image_url: imageUrl,
+        model: "General Use (Heavy)",
+        operating_resolution: "2048x2048", // higher res → catches thin gaps (between legs)
+        refine_foreground: true,
+      }),
     ]);
     const logoBoxes = detection.logos;
     // Don't iron bags, shoes, leather goods, jewelry… — keep them as-is

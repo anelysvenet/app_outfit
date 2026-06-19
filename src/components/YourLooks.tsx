@@ -117,7 +117,7 @@ export default function YourLooks() {
               <button
                 onClick={() => remove(r.id)}
                 aria-label="Supprimer"
-                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/85 text-xs text-smoke opacity-0 backdrop-blur-sm transition hover:text-terracotta group-hover:opacity-100 cursor-pointer"
+                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-xs text-smoke shadow backdrop-blur-sm transition hover:bg-white hover:text-terracotta cursor-pointer"
               >
                 ✕
               </button>
