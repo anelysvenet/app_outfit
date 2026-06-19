@@ -77,6 +77,7 @@ export interface Colorimetry {
   palette: string[]; // couleurs qui mettent en valeur
   avoid: string[]; // couleurs à éviter
   description: string;
+  photo?: string; // photo du visage pour la visualisation « draping »
 }
 
 export interface User {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { mutateDb } from "@/lib/db";
 import { analyzeColorimetry } from "@/lib/ai";
-import { parseDataUrl } from "@/lib/storage";
+import { parseDataUrl, saveImage } from "@/lib/storage";
 
 export const maxDuration = 60;
 
@@ -16,9 +16,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Photo requise" }, { status: 400 });
     }
 
-    // The face photo is only analysed, never stored — only the result is kept.
     const { base64, mediaType } = parseDataUrl(photoDataUrl);
-    const colorimetry = await analyzeColorimetry(base64, mediaType, user.language);
+    const analysis = await analyzeColorimetry(base64, mediaType, user.language);
+    // Store the face photo so the "draping" visualisation can be shown later
+    const photo = await saveImage(base64, mediaType);
+    const colorimetry = { ...analysis, photo };
 
     await mutateDb((db) => {
       const u = db.users.find((x) => x.id === user.id);

@@ -132,6 +132,23 @@ export default function ColorimetryPanel({ initial }: { initial?: Colorimetry | 
         </div>
       ) : result ? (
         <div className="mt-4 rounded-2xl bg-sand/50 p-5">
+          {/* Draping — la photo du visage avec la palette « drapée » dessous */}
+          {result.photo && (
+            <div className="mb-4 overflow-hidden rounded-xl">
+              <div className="relative aspect-[4/5] w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={result.photo} alt="" className="h-full w-full object-cover" />
+                {/* Bande de couleurs recommandées, comme un tissu drapé sous le visage */}
+                <div className="absolute inset-x-0 bottom-0 flex h-[30%]">
+                  {result.palette.slice(0, 7).map((c, i) => (
+                    <div key={c + i} className="flex-1" style={{ background: hexFor(c) }} />
+                  ))}
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-black/15 to-transparent" />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-baseline justify-between gap-2">
             <p className="font-display text-2xl">{result.season}</p>
             <span className="text-xs uppercase tracking-widest text-gold">
