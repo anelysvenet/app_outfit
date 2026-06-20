@@ -51,7 +51,7 @@ async function padImage(dataUrl: string, pct = 0.12): Promise<string> {
   canvas.width = img.naturalWidth + px * 2;
   canvas.height = img.naturalHeight + py * 2;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#2d3a4a"; // dark blue-grey — contrasts with all clothing colours
+  ctx.fillStyle = "#8a8a8a"; // neutral mid-grey — distinct from black, navy AND white
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, px, py);
   return canvas.toDataURL("image/jpeg", 0.9);

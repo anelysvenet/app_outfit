@@ -61,7 +61,7 @@ export async function analyzeGarmentPhoto(
     model: MODEL,
     max_tokens: 2048,
     system:
-      `You are an expert fashion stylist with 20 years of experience. You analyze garment photos to catalogue a wardrobe. Your responses are precise. ${langInstruction(lang)}`,
+      `You are an expert fashion stylist with 20 years of experience. You analyze garment photos to catalogue a wardrobe. Your responses are precise. Pay close attention to colour: carefully distinguish true BLACK from NAVY / dark blue, and dark grey from black. ${langInstruction(lang)}`,
     messages: [
       {
         role: "user",

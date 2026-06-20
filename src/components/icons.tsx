@@ -135,6 +135,15 @@ export function MoveIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function UndoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10h-1" />
+    </svg>
+  );
+}
+
 export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

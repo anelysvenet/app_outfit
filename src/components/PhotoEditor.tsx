@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/contexts/LanguageContext";
-import { RotateCwIcon, RotateCcwIcon, CropIcon, EraserIcon, MoveIcon } from "./icons";
+import { RotateCwIcon, RotateCcwIcon, CropIcon, EraserIcon, MoveIcon, UndoIcon } from "./icons";
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -73,8 +73,12 @@ export default function PhotoEditor({
   const [eraseTool, setEraseTool] = useState<"brush" | "pan">("brush");
   const [rect, setRect] = useState<Rect>(FULL);
   const [brush, setBrush] = useState(26);
-  const [zoom, setZoom] = useState({ scale: 1, tx: 0, ty: 0 });
+  const [zoomPct, setZoomPct] = useState(100); // for the % label / button state only
+  const [canUndo, setCanUndo] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Live view transform — applied imperatively for smoothness (no re-render per move)
+  const view = useRef({ scale: 1, tx: 0, ty: 0 });
+  const undoStack = useRef<ImageData[]>([]);
   const imgRef = useRef<HTMLImageElement>(null);
   const drag = useRef<{ mode: string; sx: number; sy: number; orig: Rect } | null>(null);
 
@@ -143,6 +147,20 @@ export default function PhotoEditor({
   const painting = useRef(false);
   const eraseInitFor = useRef<string | null>(null);
 
+  // Apply the live view transform straight to the DOM (no React re-render → smooth)
+  function applyView() {
+    const cv = eraseRef.current;
+    if (!cv) return;
+    const v = view.current;
+    cv.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.scale})`;
+    cv.style.transformOrigin = "0 0";
+  }
+  function resetView() {
+    view.current = { scale: 1, tx: 0, ty: 0 };
+    applyView();
+    setZoomPct(100);
+  }
+
   useEffect(() => {
     if (mode !== "erase") return;
     const cv = eraseRef.current;
@@ -155,18 +173,46 @@ export default function PhotoEditor({
       const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
       cv.width = Math.round(img.naturalWidth * scale);
       cv.height = Math.round(img.naturalHeight * scale);
-      const ctx = cv.getContext("2d")!;
+      const ctx = cv.getContext("2d");
+      if (!ctx) return;
       ctx.clearRect(0, 0, cv.width, cv.height);
       ctx.drawImage(img, 0, 0, cv.width, cv.height);
       eraseInitFor.current = working;
+      undoStack.current = [];
+      setCanUndo(false);
+      resetView();
     })();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, working]);
 
-  // getBoundingClientRect reflects the current zoom/pan transform, so erase
-  // coordinates stay correct at any zoom level.
+  // Snapshot the canvas before a stroke so it can be undone
+  function snapshot() {
+    const cv = eraseRef.current;
+    if (!cv) return;
+    try {
+      const ctx = cv.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+      undoStack.current.push(ctx.getImageData(0, 0, cv.width, cv.height));
+      if (undoStack.current.length > 12) undoStack.current.shift();
+      setCanUndo(true);
+    } catch {
+      /* tainted canvas — skip undo for this stroke */
+    }
+  }
+  function undo() {
+    const cv = eraseRef.current;
+    const img = undoStack.current.pop();
+    if (!cv || !img) return;
+    const ctx = cv.getContext("2d");
+    ctx?.putImageData(img, 0, 0);
+    setCanUndo(undoStack.current.length > 0);
+  }
+
+  // getBoundingClientRect reflects the current transform, so erase coords stay
+  // correct at any zoom level.
   function eraseAt(e: { clientX: number; clientY: number }) {
     const cv = eraseRef.current;
     if (!cv) return;
@@ -195,26 +241,31 @@ export default function PhotoEditor({
 
   function onCanvasDown(e: React.PointerEvent) {
     e.preventDefault();
-    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    try {
+      (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    } catch {
+      /* ignore */
+    }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
       painting.current = false;
       panStart.current = null;
       const [p1, p2] = [...pointers.current.values()];
       pinch.current = {
-        dist: dist2(p1, p2),
-        scale: zoom.scale,
+        dist: dist2(p1, p2) || 1,
+        scale: view.current.scale,
         mx: (p1.x + p2.x) / 2,
         my: (p1.y + p2.y) / 2,
-        tx: zoom.tx,
-        ty: zoom.ty,
+        tx: view.current.tx,
+        ty: view.current.ty,
       };
     } else if (pointers.current.size === 1) {
       if (eraseTool === "brush") {
         painting.current = true;
+        snapshot();
         eraseAt(e);
       } else {
-        panStart.current = { x: e.clientX, y: e.clientY, tx: zoom.tx, ty: zoom.ty };
+        panStart.current = { x: e.clientX, y: e.clientY, tx: view.current.tx, ty: view.current.ty };
       }
     }
   }
@@ -226,26 +277,28 @@ export default function PhotoEditor({
     if (pointers.current.size >= 2 && pinch.current) {
       const [p1, p2] = [...pointers.current.values()];
       const d = dist2(p1, p2);
-      if (!pinch.current.dist || !Number.isFinite(d)) return;
+      if (!Number.isFinite(d)) return;
       const mx = (p1.x + p2.x) / 2;
       const my = (p1.y + p2.y) / 2;
       const scale = clamp((pinch.current.scale * d) / pinch.current.dist, 1, 5);
-      setZoom({
+      view.current = {
         scale: Number.isFinite(scale) ? scale : 1,
         tx: pinch.current.tx + (mx - pinch.current.mx),
         ty: pinch.current.ty + (my - pinch.current.my),
-      });
+      };
+      applyView(); // imperative → smooth, no re-render
       return;
     }
     if (pointers.current.size === 1) {
       if (eraseTool === "brush" && painting.current) {
         eraseAt(e);
       } else if (eraseTool === "pan" && panStart.current) {
-        setZoom((z) => ({
-          ...z,
-          tx: panStart.current!.tx + (e.clientX - panStart.current!.x),
-          ty: panStart.current!.ty + (e.clientY - panStart.current!.y),
-        }));
+        view.current = {
+          ...view.current,
+          tx: panStart.current.tx + (e.clientX - panStart.current.x),
+          ty: panStart.current.ty + (e.clientY - panStart.current.y),
+        };
+        applyView();
       }
     }
   }
@@ -255,13 +308,14 @@ export default function PhotoEditor({
     painting.current = false;
     panStart.current = null;
     if (pointers.current.size < 2) pinch.current = null;
+    setZoomPct(Math.round(view.current.scale * 100)); // sync the % label on gesture end
   }
 
   function zoomBy(f: number) {
-    setZoom((z) => {
-      const scale = clamp(z.scale * f, 1, 5);
-      return scale === 1 ? { scale: 1, tx: 0, ty: 0 } : { ...z, scale };
-    });
+    const scale = clamp(view.current.scale * f, 1, 5);
+    view.current = scale === 1 ? { scale: 1, tx: 0, ty: 0 } : { ...view.current, scale };
+    applyView();
+    setZoomPct(Math.round(view.current.scale * 100));
   }
 
   async function doRotate(dir: "cw" | "ccw") {
@@ -269,7 +323,9 @@ export default function PhotoEditor({
     try {
       setWorking(await rotate(working, dir));
       setRect(FULL);
-      setZoom({ scale: 1, tx: 0, ty: 0 });
+      resetView();
+      undoStack.current = [];
+      setCanUndo(false);
       eraseInitFor.current = null; // re-init erase canvas for the rotated image
     } finally {
       setBusy(false);
@@ -358,10 +414,7 @@ export default function PhotoEditor({
               onPointerMove={onCanvasMove}
               onPointerUp={onCanvasUp}
               onPointerCancel={onCanvasUp}
-              style={{
-                transform: `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.scale})`,
-                transformOrigin: "0 0",
-              }}
+              style={{ transformOrigin: "0 0", willChange: "transform" }}
               className={`block max-h-[64vh] max-w-[88vw] touch-none rounded-lg ${
                 eraseTool === "brush" ? "cursor-crosshair" : "cursor-grab"
               }`}
@@ -372,10 +425,10 @@ export default function PhotoEditor({
 
       {/* Mode + rotation tools */}
       <div className="mt-5 flex items-center gap-3">
-        <button type="button" onClick={() => { setMode("crop"); setZoom({ scale: 1, tx: 0, ty: 0 }); }} disabled={busy} className={toolBtn(mode === "crop")} aria-label={t("form.crop")}>
+        <button type="button" onClick={() => { setMode("crop"); resetView(); }} disabled={busy} className={toolBtn(mode === "crop")} aria-label={t("form.crop")}>
           <CropIcon className="h-5 w-5" />
         </button>
-        <button type="button" onClick={() => { setMode("erase"); setZoom({ scale: 1, tx: 0, ty: 0 }); }} disabled={busy} className={toolBtn(mode === "erase")} aria-label={t("form.erase")}>
+        <button type="button" onClick={() => { setMode("erase"); eraseInitFor.current = null; }} disabled={busy} className={toolBtn(mode === "erase")} aria-label={t("form.erase")}>
           <EraserIcon className="h-5 w-5" />
         </button>
 
@@ -399,11 +452,14 @@ export default function PhotoEditor({
             <button type="button" onClick={() => setEraseTool("pan")} className={toolBtn(eraseTool === "pan")} aria-label={t("form.move")}>
               <MoveIcon className="h-5 w-5" />
             </button>
+            <button type="button" onClick={undo} disabled={!canUndo} className={`${toolBtn(false)} disabled:opacity-40`} aria-label={t("form.undo")}>
+              <UndoIcon className="h-5 w-5" />
+            </button>
             <div className="mx-1 h-6 w-px bg-white/15" />
             <button type="button" onClick={() => zoomBy(1 / 1.3)} className={toolBtn(false)} aria-label="Zoom -">
               <span className="text-xl leading-none">−</span>
             </button>
-            <span className="w-10 text-center text-xs text-ivory/70">{Math.round(zoom.scale * 100)}%</span>
+            <span className="w-10 text-center text-xs text-ivory/70">{zoomPct}%</span>
             <button type="button" onClick={() => zoomBy(1.3)} className={toolBtn(false)} aria-label="Zoom +">
               <span className="text-xl leading-none">+</span>
             </button>
