@@ -131,6 +131,7 @@ export default function OutfitCard({
                   <CutoutImage
                     src={garment.cutout ?? garment.photo}
                     alt={garment.name}
+                    landscape={garment.category === "chaussures"}
                     className="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-105"
                   />
                 </div>

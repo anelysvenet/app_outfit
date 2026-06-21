@@ -112,6 +112,7 @@ function DressingContent() {
                   <CutoutImage
                     src={g.cutout ?? g.photo}
                     alt={g.name}
+                    landscape={g.category === "chaussures"}
                     className="max-h-full max-w-full object-contain transition duration-700 group-hover:scale-105"
                   />
                   {g.evening && (
