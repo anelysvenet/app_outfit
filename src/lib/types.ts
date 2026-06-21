@@ -87,6 +87,12 @@ export interface Colorimetry {
   photo?: string; // photo du visage pour la visualisation « draping »
 }
 
+export interface Morphology {
+  shape: string; // ex. Sablier, Triangle, Triangle inversé, Rectangle, Ovale…
+  description: string;
+  advice: string[];
+}
+
 export interface User {
   id: string;
   email: string;
@@ -101,6 +107,7 @@ export interface User {
   subscription?: "free" | "premium";
   promoCode?: string;
   colorimetry?: Colorimetry;
+  morphology?: Morphology;
   createdAt: string;
 }
 

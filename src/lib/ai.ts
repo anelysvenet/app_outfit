@@ -220,6 +220,61 @@ export async function analyzeColorimetry(
 }
 
 // ---------------------------------------------------------------------------
+// Analyse de morphologie (à partir d'une photo en pied)
+// ---------------------------------------------------------------------------
+
+const MorphologySchema = z.object({
+  shape: z
+    .string()
+    .describe("Type de morphologie : Sablier, Triangle, Triangle inversé, Rectangle, ou Ovale"),
+  description: z
+    .string()
+    .describe("Description courte et bienveillante de la morphologie, 1-2 phrases"),
+  advice: z
+    .array(z.string())
+    .describe("4 à 6 conseils concrets pour bien s'habiller selon cette morphologie"),
+});
+
+export type MorphologyAnalysis = z.infer<typeof MorphologySchema>;
+
+export async function analyzeMorphology(
+  base64: string,
+  mediaType: string,
+  lang?: string,
+): Promise<MorphologyAnalysis> {
+  const response = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 1500,
+    system: `You are a kind, body-positive personal stylist. From a full-body silhouette photo, determine the person's body-shape type and give concrete, encouraging advice on how to dress to flatter it. Never comment on weight or make judgments. ${langInstruction(lang)}`,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+              data: base64,
+            },
+          },
+          {
+            type: "text",
+            text: "Determine the body-shape type and give concrete dressing advice to flatter it.",
+          },
+        ],
+      },
+    ],
+    output_config: { format: zodOutputFormat(MorphologySchema) },
+  });
+
+  if (!response.parsed_output) {
+    throw new Error("L'analyse morphologique a échoué, réessayez.");
+  }
+  return response.parsed_output;
+}
+
+// ---------------------------------------------------------------------------
 // Détection des logos / imprimés (pour les préserver lors du défroissage)
 // ---------------------------------------------------------------------------
 

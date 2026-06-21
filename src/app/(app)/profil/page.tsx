@@ -5,7 +5,8 @@ import { AnimatePresence } from "framer-motion";
 import PhotoInput from "@/components/PhotoInput";
 import YourLooks from "@/components/YourLooks";
 import ColorimetryPanel from "@/components/ColorimetryPanel";
-import { STYLES, type Colorimetry } from "@/lib/types";
+import MorphologyPanel from "@/components/MorphologyPanel";
+import { STYLES, type Colorimetry, type Morphology } from "@/lib/types";
 import { SettingsIcon } from "@/components/icons";
 import SettingsDrawer from "@/components/SettingsDrawer";
 import { useT } from "@/contexts/LanguageContext";
@@ -22,6 +23,7 @@ interface Me {
   subscription?: string;
   promoCode?: string;
   colorimetry?: Colorimetry;
+  morphology?: Morphology;
 }
 
 export default function ProfilePage() {
@@ -171,6 +173,11 @@ export default function ProfilePage() {
         {/* Colorimétrie (optionnel) */}
         <ColorimetryPanel initial={me.colorimetry ?? null} />
       </div>
+
+      {/* Morphologie (optionnel) */}
+      <section className="mt-12 border-t border-ink/8 pt-10">
+        <MorphologyPanel initial={me.morphology ?? null} hasPhoto={Boolean(photo)} />
+      </section>
 
       {/* Tenues par vous */}
       <section className="mt-12 border-t border-ink/8 pt-10">

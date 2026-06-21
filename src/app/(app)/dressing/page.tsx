@@ -104,15 +104,15 @@ function DressingContent() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.94 }}
                 whileHover={{ y: -6 }}
-                className="group cursor-pointer overflow-hidden rounded-2xl bg-white shadow-card"
+                className="group cursor-pointer rounded-2xl"
                 onClick={() => setEditing(g)}
               >
-                <div className="relative aspect-[3/4] overflow-hidden bg-sand">
+                <div className="relative flex aspect-[3/4] items-center justify-center">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={g.photo}
+                    src={g.cutout ?? g.photo}
                     alt={g.name}
-                    className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                    className="max-h-full max-w-full object-contain transition duration-700 group-hover:scale-105"
                   />
                   {g.evening && (
                     <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-night/85 backdrop-blur-sm">

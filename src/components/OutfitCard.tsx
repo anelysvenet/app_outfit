@@ -182,8 +182,8 @@ export default function OutfitCard({
         </div>
         <h3 className="font-display text-3xl italic">{outfit.title}</h3>
 
-        {/* Flat-lay compact — pièces détourées sur fond beige */}
-        <div className="mt-5 rounded-2xl bg-[#f3ece2] p-3">
+        {/* Flat-lay compact — pièces détourées sur le fond de l'application (sans démarcation) */}
+        <div className="mt-5 rounded-2xl bg-ivory p-3">
           <div className="mx-auto grid max-w-md grid-cols-3 gap-2 sm:grid-cols-4">
             {items.map(({ role, garment }, i) => (
               <motion.button
