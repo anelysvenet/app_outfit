@@ -44,8 +44,13 @@ export default function CutoutImage({
         const d = id.data;
         const seen = new Uint8Array(w * h);
         const stack: number[] = [];
+        // Only near-PURE white (studio backdrop / leftover box) is treated as
+        // background — real, slightly-shaded white garments are preserved.
         const isWhite = (p: number) =>
-          d[p * 4] > 240 && d[p * 4 + 1] > 240 && d[p * 4 + 2] > 240;
+          d[p * 4 + 3] > 10 &&
+          d[p * 4] > 248 &&
+          d[p * 4 + 1] > 248 &&
+          d[p * 4 + 2] > 248;
         for (let x = 0; x < w; x++) stack.push(x, (h - 1) * w + x);
         for (let y = 0; y < h; y++) stack.push(y * w, y * w + w - 1);
         while (stack.length) {

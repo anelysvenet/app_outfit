@@ -109,20 +109,11 @@ function DressingContent() {
                 onClick={() => setEditing(g)}
               >
                 <div className="relative flex aspect-[3/4] items-center justify-center">
-                  {g.cutout ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={g.cutout}
-                      alt={g.name}
-                      className="max-h-full max-w-full object-contain transition duration-700 group-hover:scale-105"
-                    />
-                  ) : (
-                    <CutoutImage
-                      src={g.photo}
-                      alt={g.name}
-                      className="max-h-full max-w-full object-contain transition duration-700 group-hover:scale-105"
-                    />
-                  )}
+                  <CutoutImage
+                    src={g.cutout ?? g.photo}
+                    alt={g.name}
+                    className="max-h-full max-w-full object-contain transition duration-700 group-hover:scale-105"
+                  />
                   {g.evening && (
                     <span className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-night/85 backdrop-blur-sm">
                       <DiscoIcon className="h-4 w-4 text-champagne" />
