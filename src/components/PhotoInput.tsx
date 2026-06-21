@@ -225,7 +225,6 @@ function openBackground(d: Uint8ClampedArray, w: number, h: number) {
   }
 }
 
-const TARGET_ASPECT = 3 / 4; // portrait card ratio used in the dressing grid
 
 /**
  * From the background-removed PNG, keep only the main garment, crop to it and
@@ -322,36 +321,16 @@ async function buildImages(
   crop.height = bh;
   crop.getContext("2d")!.drawImage(mask, minX, minY, bw, bh, 0, 0, bw, bh);
 
-  // Straighten: if the garment lies sideways (wider than tall), rotate it upright
-  let gCanvas: HTMLCanvasElement = crop;
-  let gW = bw;
-  let gH = bh;
-  if (bw > bh) {
-    const rot = document.createElement("canvas");
-    rot.width = bh;
-    rot.height = bw;
-    const rctx = rot.getContext("2d")!;
-    rctx.translate(bh, 0);
-    rctx.rotate(Math.PI / 2);
-    rctx.drawImage(crop, 0, 0);
-    gCanvas = rot;
-    gW = bh;
-    gH = bw;
-  }
-
-  // Fit the garment into a portrait 3:4 frame with a small margin, centred
-  const pad = 0.9; // garment occupies up to 90% of the frame
-  const gAspect = gW / gH;
-  let cw: number, ch: number;
-  if (gAspect <= TARGET_ASPECT) {
-    ch = Math.round(gH / pad);
-    cw = Math.round(ch * TARGET_ASPECT);
-  } else {
-    cw = Math.round(gW / pad);
-    ch = Math.round(cw / TARGET_ASPECT);
-  }
-  const dx = Math.round((cw - gW) / 2);
-  const dy = Math.round((ch - gH) / 2);
+  // Keep the garment's ORIGINAL orientation — just add a small uniform margin so
+  // nothing is edge-to-edge. object-contain then shows the whole piece.
+  const gCanvas: HTMLCanvasElement = crop;
+  const gW = bw;
+  const gH = bh;
+  const margin = Math.round(Math.max(gW, gH) * 0.05);
+  const cw = gW + margin * 2;
+  const ch = gH + margin * 2;
+  const dx = margin;
+  const dy = margin;
 
   // Transparent cut-out (keeps the real alpha, e.g. between trouser legs)
   const cut = document.createElement("canvas");

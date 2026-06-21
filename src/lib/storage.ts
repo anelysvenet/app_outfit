@@ -39,6 +39,15 @@ export function parseDataUrl(dataUrl: string): { base64: string; mediaType: stri
   return { mediaType: match[1], base64: match[2] };
 }
 
+/** Devine le vrai type MIME à partir des octets (les en-têtes HTTP mentent parfois). */
+function sniffMime(b: Buffer): string | null {
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  if (b.length >= 12 && b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP") return "image/webp";
+  if (b.length >= 4 && b.toString("ascii", 0, 3) === "GIF") return "image/gif";
+  return null;
+}
+
 /** Relit une image stockée (URL Blob publique) en base64 pour l'API Claude / fal.ai. */
 export async function readUpload(
   url: string,
@@ -46,9 +55,10 @@ export async function readUpload(
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
-    const mediaType = res.headers.get("content-type") ?? "image/jpeg";
-    const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
-    return { base64, mediaType };
+    const buf = Buffer.from(await res.arrayBuffer());
+    // Le type réel des octets prime sur l'en-tête (sinon Claude rejette l'image)
+    const mediaType = sniffMime(buf) ?? res.headers.get("content-type") ?? "image/jpeg";
+    return { base64: buf.toString("base64"), mediaType };
   } catch {
     return null;
   }
