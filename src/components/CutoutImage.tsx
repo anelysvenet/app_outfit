@@ -22,12 +22,10 @@ export default function CutoutImage({
   src,
   alt,
   className,
-  landscape = false,
 }: {
   src: string;
   alt: string;
   className?: string;
-  landscape?: boolean;
 }) {
   const [out, setOut] = useState<string | null>(null);
   useEffect(() => {
@@ -69,21 +67,7 @@ export default function CutoutImage({
           if (y < h - 1) stack.push(p + w);
         }
         ctx.putImageData(id, 0, 0);
-
-        // Shoes should read horizontally. If the (possibly old, rotated) image
-        // is taller than wide, rotate it 90° so it lies on its side.
-        let final: HTMLCanvasElement = c;
-        if (landscape && c.height > c.width) {
-          const r = document.createElement("canvas");
-          r.width = c.height;
-          r.height = c.width;
-          const rx = r.getContext("2d")!;
-          rx.translate(r.width, 0);
-          rx.rotate(Math.PI / 2);
-          rx.drawImage(c, 0, 0);
-          final = r;
-        }
-        if (!cancelled) setOut(final.toDataURL("image/png"));
+        if (!cancelled) setOut(c.toDataURL("image/png"));
       } catch {
         if (!cancelled) setOut(src);
       }
@@ -91,7 +75,7 @@ export default function CutoutImage({
     return () => {
       cancelled = true;
     };
-  }, [src, landscape]);
+  }, [src]);
 
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={out ?? src} alt={alt} className={className} />;
