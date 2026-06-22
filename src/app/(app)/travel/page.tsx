@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import OutfitCard from "@/components/OutfitCard";
 import LogoLoader from "@/components/LogoLoader";
+import ElegantSelect from "@/components/ElegantSelect";
 import { SuitcaseIcon } from "@/components/icons";
 import { useT } from "@/contexts/LanguageContext";
 import { OCCASIONS, type Garment, type Outfit, type WeatherSnapshot } from "@/lib/types";
@@ -30,6 +31,7 @@ export default function TravelPage() {
   const [packing, setPacking] = useState<Packing | null>(null);
   const [packingLoading, setPackingLoading] = useState(false);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/garments").then((r) => r.json()).then((d) => setGarments(d.garments ?? []));
@@ -84,11 +86,31 @@ export default function TravelPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Génération impossible");
       setResults(data.outfits);
+      requestAnimationFrame(() =>
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Génération impossible");
     } finally {
       setGenerating(false);
     }
+  }
+
+  function swapItem(outfitId: string, oldGarmentId: string, next: Garment) {
+    setResults((prev) =>
+      prev.map((o) => {
+        if (o.id !== outfitId) return o;
+        const items = o.items.map((it) =>
+          it.garmentId === oldGarmentId ? { garmentId: next.id, role: it.role } : it,
+        );
+        fetch(`/api/outfits/${o.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
+        return { ...o, items, tryOnImage: undefined };
+      }),
+    );
   }
 
   async function makePacking() {
@@ -187,17 +209,18 @@ export default function TravelPage() {
               <p className="text-xs text-smoke">{t("travel.planning_sub")}</p>
               {Array.from({ length: days }, (_, i) => i + 1).map((d) => (
                 <div key={d} className="flex items-center gap-3">
-                  <span className="w-16 text-sm text-smoke">{t("travel.day")} {d}</span>
-                  <select
-                    className="field !py-2 !w-52"
-                    value={planning[d] ?? ""}
-                    onChange={(e) => setPlanning((p) => ({ ...p, [d]: e.target.value }))}
-                  >
-                    <option value="">{t("travel.none")}</option>
-                    {OCCASIONS.map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
+                  <span className="w-16 shrink-0 text-sm text-smoke">{t("travel.day")} {d}</span>
+                  <div className="w-56">
+                    <ElegantSelect
+                      value={planning[d] ?? ""}
+                      onChange={(v) => setPlanning((p) => ({ ...p, [d]: v }))}
+                      placeholder={t("travel.none")}
+                      options={[
+                        { value: "", label: t("travel.none") },
+                        ...OCCASIONS.map((o) => ({ value: o, label: o })),
+                      ]}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -217,13 +240,20 @@ export default function TravelPage() {
 
       {/* Results */}
       {results.length > 0 && (
-        <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-12">
+        <motion.section ref={resultsRef} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-12 scroll-mt-6">
           <h2 className="font-display text-3xl">{t("travel.results")}</h2>
           <div className="mt-6 space-y-8">
             {results.map((o, i) => (
               <div key={o.id}>
                 <p className="mb-2 text-xs uppercase tracking-[0.2em] text-gold">{o.occasion}</p>
-                <OutfitCard outfit={o} garments={garments} userPhoto={photo} index={Math.min(i, 3)} />
+                <OutfitCard
+                  outfit={o}
+                  garments={garments}
+                  userPhoto={photo}
+                  index={Math.min(i, 3)}
+                  wardrobe={garments}
+                  onSwap={(oldId, next) => swapItem(o.id, oldId, next)}
+                />
               </div>
             ))}
           </div>
