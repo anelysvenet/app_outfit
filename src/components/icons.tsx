@@ -144,6 +144,16 @@ export function UndoIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function SuitcaseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M9 7v13M15 7v13" />
+    </svg>
+  );
+}
+
 export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

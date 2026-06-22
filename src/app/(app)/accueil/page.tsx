@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { SparklesIcon, DiscoIcon, HangerIcon } from "@/components/icons";
+import { SparklesIcon, DiscoIcon, HangerIcon, SuitcaseIcon } from "@/components/icons";
 import type { Garment, Outfit } from "@/lib/types";
 import { useT } from "@/contexts/LanguageContext";
 
@@ -126,6 +126,30 @@ export default function HomePage() {
 
           <div className="relative mt-6 flex items-center gap-1.5 text-sm text-champagne">
             {t("home.prepare")}
+            <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
+          </div>
+        </Link>
+      </motion.div>
+
+      {/* ── Travel ── */}
+      <motion.div variants={item} className="mt-3">
+        <Link
+          href="/travel"
+          className="group relative block overflow-hidden rounded-3xl bg-night p-7 text-ivory shadow-card transition hover:shadow-lift"
+        >
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-champagne/8 blur-3xl" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[9px] uppercase tracking-[0.45em] text-champagne/50">
+                {t("home.travel_label")}
+              </p>
+              <h2 className="font-display mt-2 text-4xl leading-tight">{t("home.travel_title")}</h2>
+              <p className="mt-2 max-w-xs text-sm text-ivory/50">{t("home.travel_sub")}</p>
+            </div>
+            <SuitcaseIcon className="mt-1 h-8 w-8 shrink-0 text-champagne/40" />
+          </div>
+          <div className="relative mt-6 flex items-center gap-1.5 text-sm text-champagne">
+            {t("home.travel_cta")}
             <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>
         </Link>

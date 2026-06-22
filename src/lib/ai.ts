@@ -492,3 +492,139 @@ RÈGLES DE COMPOSITION :
     })
     .filter((o) => o.items.length >= 2);
 }
+
+// ---------------------------------------------------------------------------
+// Mode Voyage : tenues par jour + liste d'affaires
+// ---------------------------------------------------------------------------
+
+const TripOutfitsSchema = z.object({
+  outfits: z
+    .array(
+      z.object({
+        day: z.number().describe("Numéro du jour (1, 2, 3…)"),
+        occasion: z.string().describe("Occasion de la tenue ce jour-là"),
+        title: z.string().describe("Nom évocateur de la tenue"),
+        items: z
+          .array(
+            z.object({
+              garmentId: z.string().describe("ID exact du vêtement de la garde-robe"),
+              role: z.string().describe("Rôle : haut, bas, robe, veste, chaussures, sac, accessoire…"),
+            }),
+          )
+          .describe("Vêtements composant la tenue, par ID"),
+        explanation: z.string().describe("Pourquoi cette tenue convient (météo, occasion). 1-2 phrases."),
+        tips: z.string().describe("Un conseil de style"),
+      }),
+    )
+    .describe("Une tenue par jour de voyage"),
+});
+
+export interface TripContext {
+  user: Pick<User, "styles">;
+  wardrobe: Garment[];
+  weather: WeatherSnapshot | null;
+  destination: string;
+  days: number;
+  occasions: string[];
+  planning?: { day: number; occasion: string }[];
+  colorimetry?: { season: string; undertone: string; palette: string[]; avoid: string[] };
+  styleRefs?: { description?: string; colors?: string[]; styles?: string[] }[];
+  lang?: string;
+}
+
+export async function generateTripOutfits(ctx: TripContext): Promise<
+  { day: number; occasion: string; title: string; items: { garmentId: string; role: string }[]; explanation: string; tips: string }[]
+> {
+  const wardrobeForPrompt = ctx.wardrobe.map((g) => ({
+    id: g.id,
+    category: g.category,
+    type: g.type,
+    cut: g.cut,
+    colors: g.colors,
+    material: g.material,
+    seasons: g.seasons,
+    styles: g.styles,
+    soiree: g.evening,
+  }));
+
+  const weatherText = ctx.weather
+    ? `Météo à ${ctx.weather.city} : ${ctx.weather.condition}, ${ctx.weather.temperature}°C (ressenti ${ctx.weather.feelsLike}°C), vent ${ctx.weather.windSpeed} km/h, pluie ${ctx.weather.rainProbability}%, min ${ctx.weather.tempMin}°C / max ${ctx.weather.tempMax}°C.`
+    : "Météo non renseignée — adapte-toi au climat habituel de la destination pour la saison en cours.";
+
+  const planningText = ctx.planning && ctx.planning.length
+    ? `PLANNING IMPOSÉ (jour → occasion) : ${JSON.stringify(ctx.planning)}`
+    : `Occasions prévues sur place : ${ctx.occasions.join(", ") || "polyvalent"}. Répartis-les harmonieusement sur les ${ctx.days} jours.`;
+
+  const prompt = `GARDE-ROBE (JSON) :
+${JSON.stringify(wardrobeForPrompt, null, 1)}
+
+VOYAGE :
+- Destination : ${ctx.destination}
+- ${weatherText}
+- Durée : ${ctx.days} jour(s)
+- ${planningText}
+- Styles préférés : ${ctx.user.styles.join(", ") || "non précisés"}
+${ctx.colorimetry ? `- Colorimétrie : saison ${ctx.colorimetry.season}, à privilégier ${ctx.colorimetry.palette.join(", ")}.` : ""}
+
+RÈGLES :
+1. Compose EXACTEMENT une tenue par jour (${ctx.days} tenues), numérotées de 1 à ${ctx.days}.
+2. Utilise UNIQUEMENT des vêtements de la garde-robe (id exact). Une même pièce peut revenir sur plusieurs jours (on voyage léger), mais varie les tenues.
+3. Chaque tenue : un haut + un bas (ou une robe/combinaison) + des chaussures, adaptés à la météo et à l'occasion du jour.
+4. Indique l'occasion de chaque jour.`;
+
+  const response = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 8192,
+    thinking: { type: "adaptive" },
+    system: `You are a personal stylist planning a travel capsule wardrobe from the user's real wardrobe, one outfit per day, adapted to the destination weather and each day's occasion. ${langInstruction(ctx.lang)}`,
+    messages: [{ role: "user", content: prompt }],
+    output_config: { format: zodOutputFormat(TripOutfitsSchema) },
+  });
+
+  if (!response.parsed_output) throw new Error("La composition du voyage a échoué, réessayez.");
+  const validIds = new Set(ctx.wardrobe.map((g) => g.id));
+  return response.parsed_output.outfits
+    .map((o) => ({ ...o, items: o.items.filter((it) => validIds.has(it.garmentId)) }))
+    .filter((o) => o.items.length >= 2);
+}
+
+const PackingListSchema = z.object({
+  categories: z
+    .array(
+      z.object({
+        name: z.string().describe("Nom de la catégorie (ex: Hygiène, Documents, Accessoires…)"),
+        items: z.array(z.string()).describe("Affaires à emporter dans cette catégorie"),
+      }),
+    )
+    .describe("Liste d'affaires à emporter, regroupée par catégorie"),
+});
+
+export type PackingList = z.infer<typeof PackingListSchema>;
+
+export async function generatePackingList(ctx: {
+  destination: string;
+  days: number;
+  occasions: string[];
+  weather: WeatherSnapshot | null;
+  lang?: string;
+}): Promise<PackingList> {
+  const weatherText = ctx.weather
+    ? `Météo : ${ctx.weather.condition}, ${ctx.weather.temperature}°C (min ${ctx.weather.tempMin}/max ${ctx.weather.tempMax}), pluie ${ctx.weather.rainProbability}%.`
+    : "Climat selon la destination et la saison.";
+  const prompt = `Établis une liste d'affaires à emporter pour ce voyage (hors tenues déjà prévues, mais inclus sous-vêtements, pyjama, etc.).
+- Destination : ${ctx.destination}
+- Durée : ${ctx.days} jour(s)
+- Occasions : ${ctx.occasions.join(", ") || "polyvalent"}
+- ${weatherText}
+Regroupe par catégories : Hygiène & beauté, Sous-vêtements & basiques, Accessoires, Électronique, Documents & argent, Santé, et tout ce qui est spécifique à la destination/météo (ex: crème solaire, parapluie, adaptateur…). Sois concret et complet sans excès.`;
+
+  const response = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 2048,
+    system: `You write practical, complete travel packing checklists adapted to the destination, weather and trip length. ${langInstruction(ctx.lang)}`,
+    messages: [{ role: "user", content: prompt }],
+    output_config: { format: zodOutputFormat(PackingListSchema) },
+  });
+  if (!response.parsed_output) throw new Error("La liste d'affaires a échoué, réessayez.");
+  return response.parsed_output;
+}
