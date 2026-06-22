@@ -190,9 +190,9 @@ export default function OutfitCard({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       key={garment.id}
-                      src={garment.photo}
+                      src={garment.cutout ?? garment.photo}
                       alt={garment.name}
-                      className="h-32 w-24 rounded-lg object-cover"
+                      className="h-32 w-24 rounded-lg bg-white object-contain p-1.5"
                     />
                   ))}
                 </div>

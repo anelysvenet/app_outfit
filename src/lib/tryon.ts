@@ -5,12 +5,21 @@ export function tryOnAvailable(): boolean {
   return Boolean(process.env.FAL_KEY);
 }
 
-// FASHN v1.5 — détecte automatiquement le type de vêtement (haut/bas/robe).
+// FASHN ne sait habiller qu'une de ces trois zones par passe.
+type FashnCategory = "tops" | "bottoms" | "one-pieces";
+
+// FASHN v1.5 — essayage virtuel d'UNE pièce sur la silhouette.
 // Doc: https://fal.ai/models/fal-ai/fashn/tryon/v1.5
+// Points clés :
+//  - `category` DOIT être explicite : en "auto" le modèle se trompe de zone
+//    (un bas détouré peut être plaqué comme un haut).
+//  - `mode` (et non `quality_mode`) accepte performance | balanced | quality.
+//  - en v1.5 la préservation des autres vêtements est automatique (plus de
+//    `restore_clothes`) : poser un "bottoms" ne touche pas au haut déjà appliqué.
 async function falTryOn(
   personUrl: string,
   garmentUrl: string,
-  restoreClothes = false,
+  category: FashnCategory,
 ): Promise<{ url: string } | { error: string }> {
   const res = await fetch("https://fal.run/fal-ai/fashn/tryon/v1.5", {
     method: "POST",
@@ -21,10 +30,12 @@ async function falTryOn(
     body: JSON.stringify({
       model_image: personUrl,
       garment_image: garmentUrl,
+      // Zone du corps à habiller — indispensable pour un placement correct.
+      category,
+      // Nos vêtements sont des images produit (fond neutre), pas des photos
+      // portées ; "auto" reste robuste si une pièce ancienne n'a pas été traitée.
       garment_photo_type: "auto",
-      quality_mode: "quality",
-      // Préserve les vêtements déjà appliqués lors des passes successives
-      restore_clothes: restoreClothes,
+      mode: "quality",
       seed: 42,
     }),
   });
@@ -51,60 +62,66 @@ export async function generateTryOn(
 ): Promise<{ image: string } | { error: string } | null> {
   if (!tryOnAvailable()) return null;
 
-  const dress = garments.find((g) => g.category === "robe");
-  const top = garments.find((g) => g.category === "haut" || g.category === "veste");
+  // Le modèle d'essayage ne compose QUE des vêtements (haut / bas / pièce
+  // entière). Les chaussures et les accessoires (sac, sacoche, ceinture,
+  // chapeau, foulard, bijoux, lunettes…) ne sont PAS supportés : les envoyer
+  // plaquait n'importe quoi sur la silhouette. On les ignore donc ici.
+  const onePiece = garments.find(
+    (g) => g.category === "robe" || g.category === "combinaison",
+  );
+  const top = garments.find((g) => g.category === "haut");
+  const jacket = garments.find((g) => g.category === "veste");
   const bottom = garments.find((g) => g.category === "bas");
-  // Accessoires portables que FASHN peut composer sur la silhouette
-  const bag = garments.find((g) => g.category === "sac" || g.category === "sacoche");
-  const belt = garments.find((g) => g.category === "ceinture");
-  const hat = garments.find((g) => g.category === "chapeau");
-  const scarf = garments.find((g) => g.category === "foulard");
 
-  // Ordre : vêtements (critiques) puis accessoires (optionnels).
-  // restoreClothes=true à partir de la 2e passe pour éviter la dérive de couleur.
-  type Step = { url: string; optional: boolean };
+  // Ordre des passes : couche de base d'abord, veste/manteau par-dessus.
+  type Step = { url: string; category: FashnCategory; optional: boolean };
   const steps: Step[] = [];
-  if (dress) {
-    steps.push({ url: dress.photo, optional: false });
+
+  if (onePiece) {
+    steps.push({ url: onePiece.photo, category: "one-pieces", optional: false });
   } else {
-    if (top) steps.push({ url: top.photo, optional: false });
-    if (bottom) steps.push({ url: bottom.photo, optional: false });
+    if (top) steps.push({ url: top.photo, category: "tops", optional: false });
+    if (bottom) steps.push({ url: bottom.photo, category: "bottoms", optional: false });
   }
-  if (belt)  steps.push({ url: belt.photo,  optional: true });
-  if (scarf) steps.push({ url: scarf.photo, optional: true });
-  if (hat)   steps.push({ url: hat.photo,   optional: true });
-  if (bag)   steps.push({ url: bag.photo,   optional: true });
+  // Veste/manteau = couche supérieure posée par-dessus le haut ou la robe.
+  // Optionnelle seulement s'il y a déjà une autre pièce du haut (sinon c'est
+  // la seule pièce et son échec doit remonter).
+  if (jacket) {
+    steps.push({
+      url: jacket.photo,
+      category: "tops",
+      optional: Boolean(onePiece || top),
+    });
+  }
 
   if (steps.length === 0) return null;
 
   let currentPersonUrl = personPhotoUrl;
 
-  for (let i = 0; i < steps.length; i++) {
-    const { url: garmentUrl, optional } = steps[i];
-    // À partir de la 2e passe, demander à FASHN de préserver les vêtements déjà appliqués
-    const result = await falTryOn(currentPersonUrl, garmentUrl, i > 0);
+  for (const step of steps) {
+    const result = await falTryOn(currentPersonUrl, step.url, step.category);
 
     if ("error" in result) {
-      if (optional) {
-        // Accessoire échoué → on garde le résultat actuel et on continue
+      if (step.optional) {
+        // Couche optionnelle échouée → on garde le résultat courant et on continue.
         console.warn("[fashn] optional step skipped:", result.error);
         continue;
       }
       return { error: result.error };
     }
 
-    // Persiste le résultat sur Vercel Blob pour l'étape suivante.
+    // Persiste le résultat sur le stockage pour servir d'entrée à la passe suivante.
     try {
       const res = await fetch(result.url);
       if (!res.ok) {
-        if (optional) { continue; }
+        if (step.optional) continue;
         return { error: `download failed: ${res.status}` };
       }
       const buf = Buffer.from(await res.arrayBuffer());
       const mediaType = res.headers.get("content-type") ?? "image/png";
       currentPersonUrl = await saveImage(buf.toString("base64"), mediaType);
     } catch (e) {
-      if (optional) { continue; }
+      if (step.optional) continue;
       return { error: e instanceof Error ? e.message : "download error" };
     }
   }
