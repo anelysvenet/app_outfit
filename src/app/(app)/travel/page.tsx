@@ -19,7 +19,7 @@ export default function TravelPage() {
   const [destination, setDestination] = useState("");
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
-  const [days, setDays] = useState(3);
+  const [days, setDays] = useState(1);
   const [occasions, setOccasions] = useState<string[]>([]);
   const [planning, setPlanning] = useState<Record<number, string>>({});
   const [showPlanning, setShowPlanning] = useState(false);

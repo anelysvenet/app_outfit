@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import LogoLoader from "./LogoLoader";
 import { useT } from "@/contexts/LanguageContext";
 import type { Morphology } from "@/lib/types";
@@ -16,6 +17,7 @@ export default function MorphologyPanel({
   const [result, setResult] = useState<Morphology | null>(initial ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvice, setShowAdvice] = useState(false);
 
   async function analyze() {
     setLoading(true);
@@ -50,20 +52,38 @@ export default function MorphologyPanel({
         <div className="mt-4 rounded-2xl bg-sand/50 p-5">
           <p className="font-display text-2xl">{result.shape}</p>
           <p className="mt-2 text-sm text-ink/75 leading-relaxed">{result.description}</p>
-          <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-smoke">
+
+          <button
+            onClick={() => setShowAdvice((s) => !s)}
+            className="mt-4 flex items-center gap-2 text-sm text-gold cursor-pointer"
+          >
+            <motion.span animate={{ rotate: showAdvice ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              ▾
+            </motion.span>
             {t("morpho.advice")}
-          </p>
-          <ul className="mt-2 space-y-1.5">
-            {result.advice.map((a, i) => (
-              <li key={i} className="flex gap-2 text-sm text-ink/80">
-                <span className="text-gold">✦</span>
-                <span>{a}</span>
-              </li>
-            ))}
-          </ul>
+          </button>
+          <AnimatePresence initial={false}>
+            {showAdvice && (
+              <motion.ul
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="mt-2 space-y-1.5 overflow-hidden"
+              >
+                {result.advice.map((a, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-ink/80">
+                    <span className="text-gold">✦</span>
+                    <span>{a}</span>
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+          </AnimatePresence>
+
           <button
             onClick={analyze}
-            className="mt-5 text-xs text-gold underline-offset-4 hover:underline cursor-pointer"
+            className="mt-5 block text-xs text-gold underline-offset-4 hover:underline cursor-pointer"
           >
             {t("morpho.redo")}
           </button>

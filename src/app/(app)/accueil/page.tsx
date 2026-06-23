@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { SparklesIcon, DiscoIcon, HangerIcon, SuitcaseIcon } from "@/components/icons";
+import { SparklesIcon, HangerIcon, SuitcaseIcon } from "@/components/icons";
 import type { Garment, Outfit } from "@/lib/types";
 import { useT } from "@/contexts/LanguageContext";
 
@@ -31,7 +31,6 @@ export default function HomePage() {
   const rated = outfits.filter((o) => typeof o.rating === "number").length;
 
   const [createLine1, createLine2] = t("home.create_title").split("\n");
-  const [eveningLine1, eveningLine2] = t("home.evening_title").split("\n");
 
   return (
     <motion.div variants={container} initial="hidden" animate="show">
@@ -95,37 +94,6 @@ export default function HomePage() {
 
           <div className="relative mt-8 flex items-center gap-1.5 text-sm text-champagne">
             {t("home.compose")}
-            <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
-          </div>
-        </Link>
-      </motion.div>
-
-      {/* ── Mode soirée ── */}
-      <motion.div variants={item} className="mt-3">
-        <Link
-          href="/soiree"
-          className="group relative block overflow-hidden rounded-3xl bg-night p-7 text-ivory shadow-card transition hover:shadow-lift"
-        >
-          <div className="pointer-events-none absolute -left-8 -top-6 h-36 w-36 rounded-full bg-champagne/8 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-4 right-0 h-28 w-28 rounded-full bg-terracotta/6 blur-2xl" />
-
-          <div className="relative flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[9px] uppercase tracking-[0.45em] text-champagne/50">
-                {t("home.evening_label")}
-              </p>
-              <h2 className="font-display mt-2 text-4xl italic text-champagne leading-tight">
-                {eveningLine1}<br />{eveningLine2}
-              </h2>
-              <p className="mt-2 text-sm text-ivory/45">
-                {t("home.evening_sub")}
-              </p>
-            </div>
-            <DiscoIcon className="mt-1 h-8 w-8 shrink-0 text-champagne/30" />
-          </div>
-
-          <div className="relative mt-6 flex items-center gap-1.5 text-sm text-champagne">
-            {t("home.prepare")}
             <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>
         </Link>
