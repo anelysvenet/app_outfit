@@ -17,6 +17,7 @@ export async function POST(req: Request) {
       occasions?: string[];
       planning?: { day: number; occasion: string }[];
       weather?: WeatherSnapshot | null;
+      avoidTitles?: string[];
     };
     const destination = (body.destination || "").trim();
     const days = Math.max(1, Math.min(14, Math.round(body.days || 1)));
@@ -56,6 +57,7 @@ export async function POST(req: Request) {
           }
         : undefined,
       styleRefs,
+      avoidTitles: Array.isArray(body.avoidTitles) ? body.avoidTitles : undefined,
       lang: user.language,
     });
 

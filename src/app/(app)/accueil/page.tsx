@@ -103,20 +103,20 @@ export default function HomePage() {
       <motion.div variants={item} className="mt-3">
         <Link
           href="/travel"
-          className="group relative block overflow-hidden rounded-3xl bg-night p-7 text-ivory shadow-card transition hover:shadow-lift"
+          className="group relative block overflow-hidden rounded-3xl bg-white p-7 shadow-card transition hover:shadow-lift"
         >
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-champagne/8 blur-3xl" />
+          <div className="pointer-events-none absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-gold/5 blur-3xl" />
           <div className="relative flex items-start justify-between gap-4">
             <div>
-              <p className="text-[9px] uppercase tracking-[0.45em] text-champagne/50">
+              <p className="text-[9px] uppercase tracking-[0.45em] text-gold">
                 {t("home.travel_label")}
               </p>
               <h2 className="font-display mt-2 text-4xl leading-tight">{t("home.travel_title")}</h2>
-              <p className="mt-2 max-w-xs text-sm text-ivory/50">{t("home.travel_sub")}</p>
+              <p className="mt-2 max-w-xs text-sm text-smoke">{t("home.travel_sub")}</p>
             </div>
-            <SuitcaseIcon className="mt-1 h-8 w-8 shrink-0 text-champagne/40" />
+            <SuitcaseIcon className="mt-1 h-8 w-8 shrink-0 text-gold/40" />
           </div>
-          <div className="relative mt-6 flex items-center gap-1.5 text-sm text-champagne">
+          <div className="relative mt-6 flex items-center gap-1.5 text-sm text-gold">
             {t("home.travel_cta")}
             <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>

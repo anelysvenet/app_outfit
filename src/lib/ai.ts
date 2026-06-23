@@ -529,6 +529,7 @@ export interface TripContext {
   planning?: { day: number; occasion: string }[];
   colorimetry?: { season: string; undertone: string; palette: string[]; avoid: string[] };
   styleRefs?: { description?: string; colors?: string[]; styles?: string[] }[];
+  avoidTitles?: string[];
   lang?: string;
 }
 
@@ -568,9 +569,14 @@ ${ctx.colorimetry ? `- Colorimétrie : saison ${ctx.colorimetry.season}, à priv
 
 RÈGLES :
 1. Compose EXACTEMENT une tenue par jour (${ctx.days} tenues), numérotées de 1 à ${ctx.days}.
-2. Utilise UNIQUEMENT des vêtements de la garde-robe (id exact). Une même pièce peut revenir sur plusieurs jours (on voyage léger), mais varie les tenues.
-3. Chaque tenue : un haut + un bas (ou une robe/combinaison) + des chaussures, adaptés à la météo et à l'occasion du jour.
-4. Indique l'occasion de chaque jour.`;
+2. Utilise UNIQUEMENT des vêtements de la garde-robe (id exact).
+3. OBLIGATOIRE — chaque tenue doit être COMPLÈTE : soit un HAUT + un BAS (pantalon, jupe ou short), soit une ROBE, soit une COMBINAISON. JAMAIS un haut sans bas. Ajoute toujours une paire de chaussures.
+4. SOIS CRÉATIF et VARIÉ : change un maximum de pièces d'un jour à l'autre, évite de répéter les mêmes associations, ose des combinaisons originales (couleurs, superpositions, accessoires variés). Chaque jour doit avoir un caractère distinct.
+5. Adapte chaque tenue à la météo et à l'occasion du jour, et indique l'occasion.${
+    ctx.avoidTitles && ctx.avoidTitles.length
+      ? `\n6. Propose des tenues DIFFÉRENTES de celles déjà suggérées : ${ctx.avoidTitles.slice(0, 20).join("; ")}.`
+      : ""
+  }`;
 
   const response = await client().messages.parse({
     model: MODEL,
@@ -582,10 +588,18 @@ RÈGLES :
   });
 
   if (!response.parsed_output) throw new Error("La composition du voyage a échoué, réessayez.");
-  const validIds = new Set(ctx.wardrobe.map((g) => g.id));
+  const catById = new Map(ctx.wardrobe.map((g) => [g.id, g.category]));
   return response.parsed_output.outfits
-    .map((o) => ({ ...o, items: o.items.filter((it) => validIds.has(it.garmentId)) }))
-    .filter((o) => o.items.length >= 2);
+    .map((o) => ({ ...o, items: o.items.filter((it) => catById.has(it.garmentId)) }))
+    .filter((o) => {
+      const cats = o.items.map((it) => catById.get(it.garmentId));
+      const hasBottom = cats.some((c) => c === "bas" || c === "robe" || c === "combinaison");
+      const hasTop = cats.some(
+        (c) => c === "haut" || c === "veste" || c === "robe" || c === "combinaison",
+      );
+      // Keep only complete outfits (no top without a bottom)
+      return o.items.length >= 2 && hasBottom && hasTop;
+    });
 }
 
 const PackingListSchema = z.object({

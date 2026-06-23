@@ -38,12 +38,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ available: true, image: null });
     }
 
-    // fal.ai returned an error — surface it to the client
+    // fal.ai returned an error — degrade gracefully to the lookbook instead of
+    // showing a raw technical message (e.g. exhausted balance / account locked)
     if ("error" in result) {
-      return NextResponse.json(
-        { error: `Essayage fal.ai : ${result.error}` },
-        { status: 502 },
-      );
+      console.warn("[tryon] fal error:", result.error);
+      return NextResponse.json({ available: true, image: null });
     }
 
     // success

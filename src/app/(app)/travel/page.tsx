@@ -25,6 +25,7 @@ export default function TravelPage() {
   const [showPlanning, setShowPlanning] = useState(false);
 
   const [generating, setGenerating] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState<Outfit[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,6 +94,33 @@ export default function TravelPage() {
       setError(e instanceof Error ? e.message : "Génération impossible");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const planningArr = Object.entries(planning)
+        .filter(([, occ]) => occ)
+        .map(([day, occasion]) => ({ day: Number(day), occasion }));
+      const res = await fetch("/api/travel/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destination: destination.trim(),
+          days,
+          occasions,
+          planning: showPlanning ? planningArr : undefined,
+          weather,
+          avoidTitles: results.map((o) => o.title),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.outfits)) {
+        setResults((prev) => [...prev, ...data.outfits]);
+      }
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -256,6 +284,18 @@ export default function TravelPage() {
                 />
               </div>
             ))}
+          </div>
+
+          {/* Voir plus */}
+          <div className="mt-6 flex justify-center">
+            {loadingMore ? (
+              <LogoLoader size={40} label={t("travel.more_loading")} />
+            ) : (
+              <button onClick={loadMore} className="btn-ghost inline-flex items-center gap-2">
+                {t("travel.more")}
+                <span>↓</span>
+              </button>
+            )}
           </div>
 
           {/* Packing list */}
