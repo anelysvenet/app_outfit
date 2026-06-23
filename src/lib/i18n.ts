@@ -7,6 +7,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     "nav.dressing": "Dressing",
     "nav.create": "Créer",
     "nav.evening": "Soirée",
+    "nav.travel": "Voyage",
     "nav.profile": "Profil",
     // Home
     "home.welcome": "Bienvenue",
@@ -252,6 +253,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     "nav.dressing": "Wardrobe",
     "nav.create": "Create",
     "nav.evening": "Evening",
+    "nav.travel": "Travel",
     "nav.profile": "Profile",
     // Home
     "home.welcome": "Welcome",
@@ -497,6 +499,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     "nav.dressing": "Armario",
     "nav.create": "Crear",
     "nav.evening": "Noche",
+    "nav.travel": "Viaje",
     "nav.profile": "Perfil",
     // Home
     "home.welcome": "Bienvenida",
@@ -742,6 +745,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     "nav.dressing": "Guardaroba",
     "nav.create": "Crea",
     "nav.evening": "Sera",
+    "nav.travel": "Viaggio",
     "nav.profile": "Profilo",
     // Home
     "home.welcome": "Benvenuta",
@@ -987,6 +991,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     "nav.dressing": "Kleiderschrank",
     "nav.create": "Erstellen",
     "nav.evening": "Abend",
+    "nav.travel": "Reise",
     "nav.profile": "Profil",
     // Home
     "home.welcome": "Willkommen",
@@ -1232,6 +1237,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     "nav.dressing": "Guarda-roupa",
     "nav.create": "Criar",
     "nav.evening": "Noite",
+    "nav.travel": "Viagem",
     "nav.profile": "Perfil",
     // Home
     "home.welcome": "Bem-vinda",
