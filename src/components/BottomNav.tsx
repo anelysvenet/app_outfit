@@ -9,7 +9,6 @@ import {
   SparklesIcon,
   DiscoIcon,
   UserIcon,
-  SuitcaseIcon,
 } from "./icons";
 import { useT } from "@/contexts/LanguageContext";
 
@@ -21,7 +20,6 @@ export default function BottomNav() {
     { href: "/accueil", label: t("nav.home"), Icon: HomeIcon },
     { href: "/dressing", label: t("nav.dressing"), Icon: HangerIcon },
     { href: "/generer", label: t("nav.create"), Icon: SparklesIcon, featured: true },
-    { href: "/travel", label: t("nav.travel"), Icon: SuitcaseIcon },
     { href: "/soiree", label: t("nav.evening"), Icon: DiscoIcon },
     { href: "/profil", label: t("nav.profile"), Icon: UserIcon },
   ];
