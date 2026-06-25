@@ -296,17 +296,22 @@ const LogoDetectionSchema = z.object({
     .describe(
       "true ONLY if this is a soft fabric garment that can be ironed (tops, dresses, trousers, knitwear…). false for bags, shoes, leather goods, jewelry, watches, sunglasses, hats and other structured/rigid accessories.",
     ),
+  kind: z
+    .enum(["top", "bottom", "dress", "other"])
+    .describe(
+      "Coarse type: 'top' (shirt, t-shirt, sweater, jacket), 'bottom' (trousers, jeans, skirt, shorts), 'dress' (dress or jumpsuit), or 'other'.",
+    ),
 });
 
 export type LogoBox = { x: number; y: number; w: number; h: number };
-export type LogoDetection = { logos: LogoBox[]; ironable: boolean };
+export type LogoDetection = { logos: LogoBox[]; ironable: boolean; kind: string };
 
 export async function detectLogos(base64: string, mediaType: string): Promise<LogoDetection> {
   const response = await client().messages.parse({
     model: MODEL,
     max_tokens: 1024,
     system:
-      "You analyse a single fashion item photo. (1) Locate everything that must stay pixel-identical: printed logos, brand marks, slogans, embroidered emblems, graphic prints, AND buttons, button plackets, snaps, zips, studs, buckles, metal hardware and drawcords — return TIGHT bounding boxes as fractions of the image (0 to 1); ignore plain fabric and seams; empty list if none. (2) Decide whether the item is a soft fabric garment that can be ironed.",
+      "You analyse a single fashion item photo. (1) Locate everything that must stay pixel-identical: printed logos, brand marks, slogans, embroidered emblems, graphic prints, AND buttons, button plackets, snaps, zips, studs, buckles, metal hardware and drawcords — return TIGHT bounding boxes as fractions of the image (0 to 1); ignore plain fabric and seams; empty list if none. (2) Decide whether the item is a soft fabric garment that can be ironed. (3) Give its coarse type (top / bottom / dress / other).",
     messages: [
       {
         role: "user",
@@ -341,7 +346,7 @@ export async function detectLogos(base64: string, mediaType: string): Promise<Lo
     }))
     .filter((b) => b.w > 0.01 && b.h > 0.01 && b.w < 0.95 && b.h < 0.95)
     .slice(0, 12);
-  return { logos, ironable: out?.ironable ?? true };
+  return { logos, ironable: out?.ironable ?? true, kind: out?.kind ?? "other" };
 }
 
 // ---------------------------------------------------------------------------

@@ -23,17 +23,36 @@ async function toBase64(url: string): Promise<string | null> {
   return `data:${mime};base64,${Buffer.from(await r.arrayBuffer()).toString("base64")}`;
 }
 
+// Premium e-commerce "steaming" prompt (Zara-like flat lay). Background is
+// handled separately by BiRefNet, and logos/buttons are pasted back client-side.
+function steamPrompt(kind: string): string {
+  const base =
+    "Premium e-commerce product photography of the exact same clothing item. " +
+    "Keep the garment EXACTLY as it is: preserve the shape, proportions and stitching, " +
+    "preserve the exact color and fabric texture, do not redesign or invent details. " +
+    "Remove all wrinkles and fold marks (from lying flat) while keeping natural fabric drape, " +
+    "smooth the fabric as if professionally steamed. Perfect flat-lay presentation, " +
+    "pure white seamless background, soft diffused studio lighting, subtle natural shadow underneath, " +
+    "no hanger, no mannequin, no props, ultra sharp, luxury fashion catalog style, 4K.";
+  const extra =
+    kind === "bottom"
+      ? " Straighten both legs. Keep both sides perfectly symmetrical. Remove all fold marks. Maintain crisp seams."
+      : kind === "top" || kind === "dress"
+        ? " Make the garment look professionally steamed. Straighten the straps. Symmetrize the silhouette. Keep the hems perfectly aligned."
+        : "";
+  return base + extra;
+}
+
 /** Generative "ironing": smooths the fabric. The client restores the real
  *  alpha (from the original) and the real logos, so the matte and prints
  *  stay correct even though FLUX repaints the surface. */
-async function dewrinkle(imageUrl: string): Promise<string | null> {
+async function dewrinkle(imageUrl: string, prompt: string): Promise<string | null> {
   try {
     const res = await falPost("fal-ai/flux/dev/image-to-image", {
       image_url: imageUrl,
-      prompt:
-        "the exact same clothing item, fabric perfectly ironed and steamed, completely smooth, wrinkle-free, flat even textile, no creases no folds, identical color shape and design, professional fashion e-commerce product photo on plain background, sharp focus",
-      strength: 0.38,
-      num_inference_steps: 30,
+      prompt,
+      strength: 0.42,
+      num_inference_steps: 32,
       guidance_scale: 3.5,
       seed: 42,
     });
@@ -67,11 +86,15 @@ export async function POST(req: Request) {
     const { base64, mediaType } = parseDataUrl(photoDataUrl);
     const imageUrl = await saveImage(base64, mediaType);
 
-    // In parallel: logos + ironability, ironed RGB (FLUX), and the matte/alpha
-    // computed on the ORIGINAL (so the gap between trouser legs stays cut out).
-    const [detection, ironedRaw, birefRes] = await Promise.all([
-      detectLogos(base64, mediaType).catch(() => ({ logos: [], ironable: true })),
-      dewrinkle(imageUrl),
+    // Detect type/logos first (the steaming prompt depends on the garment kind),
+    // then steam (FLUX) + matte (BiRefNet on the ORIGINAL) in parallel.
+    const detection = await detectLogos(base64, mediaType).catch(() => ({
+      logos: [] as { x: number; y: number; w: number; h: number }[],
+      ironable: true,
+      kind: "other",
+    }));
+    const [ironedRaw, birefRes] = await Promise.all([
+      detection.ironable ? dewrinkle(imageUrl, steamPrompt(detection.kind)) : Promise.resolve(null),
       falPost("fal-ai/birefnet", {
         image_url: imageUrl,
         model: "General Use (Heavy)",
@@ -80,8 +103,7 @@ export async function POST(req: Request) {
       }),
     ]);
     const logoBoxes = detection.logos;
-    // Don't iron bags, shoes, leather goods, jewelry… — keep them as-is
-    const ironedDataUrl = detection.ironable ? ironedRaw : null;
+    const ironedDataUrl = ironedRaw;
 
     if (!birefRes.ok) {
       console.error("[birefnet] error:", birefRes.status, await birefRes.text().catch(() => ""));
