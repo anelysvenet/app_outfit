@@ -35,6 +35,7 @@ export default function OutfitCard({
   const [tryOnMessage, setTryOnMessage] = useState<string | null>(null);
   const [showLookbook, setShowLookbook] = useState(false);
   const [picker, setPicker] = useState<{ oldId: string; category: Category } | null>(null);
+  const [aiPicking, setAiPicking] = useState(false);
 
   const swapEnabled = Boolean(onSwap && wardrobe);
 
@@ -84,6 +85,30 @@ export default function OutfitCard({
       setTryOnMessage(t("outfit.try_on_retry"));
     } finally {
       setTryOnLoading(false);
+    }
+  }
+
+  async function aiPick() {
+    if (!picker || !onSwap) return;
+    setAiPicking(true);
+    try {
+      const res = await fetch("/api/garments/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outfitId: outfit.id,
+          category: picker.category,
+          excludeId: picker.oldId,
+          occasion: outfit.occasion,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.garment) {
+        onSwap(picker.oldId, data.garment);
+        setPicker(null);
+      }
+    } finally {
+      setAiPicking(false);
     }
   }
 
@@ -275,6 +300,16 @@ export default function OutfitCard({
                   </svg>
                 </button>
               </div>
+
+              <button
+                onClick={aiPick}
+                disabled={aiPicking}
+                className="mb-4 flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-medium text-ivory transition hover:bg-night disabled:opacity-50 cursor-pointer"
+              >
+                <span className="text-champagne">✦</span>
+                {aiPicking ? t("outfit.ai_picking") : t("outfit.ai_pick")}
+              </button>
+
               {(() => {
                 const choices = wardrobe.filter(
                   (g) => g.category === picker.category && g.id !== picker.oldId,

@@ -144,6 +144,16 @@ export function UndoIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function BagIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M6 2 4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6l-2-4Z" />
+      <path d="M4 6h16" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  );
+}
+
 export function SuitcaseIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...props}>

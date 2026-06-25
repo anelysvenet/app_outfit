@@ -69,6 +69,23 @@ export default function OutfitsPage() {
     });
   }
 
+  function swapItem(outfitId: string, oldGarmentId: string, next: Garment) {
+    setOutfits((prev) =>
+      prev.map((o) => {
+        if (o.id !== outfitId) return o;
+        const items = o.items.map((it) =>
+          it.garmentId === oldGarmentId ? { garmentId: next.id, role: it.role } : it,
+        );
+        fetch(`/api/outfits/${o.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
+        return { ...o, items, tryOnImage: undefined };
+      }),
+    );
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -163,6 +180,8 @@ export default function OutfitsPage() {
                   garments={garments}
                   userPhoto={photo}
                   index={Math.min(i, 3)}
+                  wardrobe={garments}
+                  onSwap={(oldId, next) => swapItem(o.id, oldId, next)}
                   onDeleted={() =>
                     setOutfits((prev) => prev.filter((x) => x.id !== o.id))
                   }

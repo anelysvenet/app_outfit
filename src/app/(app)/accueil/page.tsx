@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { SparklesIcon, HangerIcon, SuitcaseIcon } from "@/components/icons";
+import { SparklesIcon, HangerIcon, SuitcaseIcon, BagIcon } from "@/components/icons";
 import type { Garment, Outfit } from "@/lib/types";
 import { useT } from "@/contexts/LanguageContext";
 
@@ -141,6 +141,28 @@ export default function HomePage() {
           </p>
           <div className="mt-5 flex items-center gap-1.5 text-sm text-gold">
             {t("home.idea_cta")}
+            <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
+          </div>
+        </Link>
+      </motion.div>
+
+      {/* ── Avant d'acheter ── */}
+      <motion.div variants={item} className="mt-3">
+        <Link
+          href="/shop"
+          className="group relative block overflow-hidden rounded-3xl bg-white p-7 shadow-card transition hover:shadow-lift"
+        >
+          <div className="pointer-events-none absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-terracotta/5 blur-2xl" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[9px] uppercase tracking-[0.45em] text-gold">{t("home.shop_label")}</p>
+              <h2 className="font-display mt-2 text-3xl leading-tight">{t("home.shop_title")}</h2>
+              <p className="mt-2 max-w-sm text-sm text-smoke">{t("home.shop_sub")}</p>
+            </div>
+            <BagIcon className="mt-1 h-8 w-8 shrink-0 text-gold/40" />
+          </div>
+          <div className="mt-5 flex items-center gap-1.5 text-sm text-gold">
+            {t("home.shop_cta")}
             <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>
         </Link>

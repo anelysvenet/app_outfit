@@ -642,3 +642,126 @@ Regroupe par catégories : Hygiène & beauté, Sous-vêtements & basiques, Acces
   if (!response.parsed_output) throw new Error("La liste d'affaires a échoué, réessayez.");
   return response.parsed_output;
 }
+
+// ---------------------------------------------------------------------------
+// Suggestion de remplacement (« laissez l'IA choisir »)
+// ---------------------------------------------------------------------------
+
+const SwapSuggestionSchema = z.object({
+  garmentId: z.string().describe("ID exact du vêtement choisi parmi les candidats"),
+});
+
+export async function suggestReplacement(ctx: {
+  keep: { type: string; colors: string[]; category: string }[];
+  candidates: { id: string; type: string; colors: string[]; material: string; styles: string[]; category: string }[];
+  occasion?: string;
+  lang?: string;
+}): Promise<string | null> {
+  if (!ctx.candidates.length) return null;
+  const prompt = `Le reste de la tenue (à garder) : ${JSON.stringify(ctx.keep)}
+Occasion : ${ctx.occasion || "non précisée"}
+Choisis, PARMI ces candidats uniquement, le vêtement qui complète le mieux la tenue (harmonie des couleurs, des coupes et du style). Réponds avec son id exact.
+Candidats : ${JSON.stringify(ctx.candidates)}`;
+
+  const response = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 512,
+    system: `You are a stylist picking the single best garment from a candidate list to complete an outfit. ${langInstruction(ctx.lang)}`,
+    messages: [{ role: "user", content: prompt }],
+    output_config: { format: zodOutputFormat(SwapSuggestionSchema) },
+  });
+  const id = response.parsed_output?.garmentId;
+  return id && ctx.candidates.some((c) => c.id === id) ? id : ctx.candidates[0].id;
+}
+
+// ---------------------------------------------------------------------------
+// Assistant achat : composer une tenue autour d'un article photographié
+// ---------------------------------------------------------------------------
+
+const ShopAnalysisSchema = z.object({
+  name: z.string().describe("Nom court de l'article"),
+  category: z.string().describe("Catégorie : haut, bas, robe, combinaison, veste, chaussures, sac, accessoire…"),
+  colors: z.array(z.string()).describe("Couleurs dominantes, max 3"),
+  description: z.string().describe("Description courte et élégante, 1 phrase"),
+});
+
+const ShopOutfitsSchema = z.object({
+  outfits: z
+    .array(
+      z.object({
+        title: z.string(),
+        items: z.array(z.object({ garmentId: z.string(), role: z.string() })),
+        explanation: z.string().describe("Pourquoi cette tenue met en valeur l'article, 1-2 phrases"),
+      }),
+    )
+    .describe("2 à 3 façons d'associer l'article avec la garde-robe"),
+});
+
+export async function analyzeAndPairItem(
+  base64: string,
+  mediaType: string,
+  wardrobe: Garment[],
+  lang?: string,
+): Promise<{
+  item: { name: string; category: string; colors: string[]; description: string };
+  outfits: { title: string; items: { garmentId: string; role: string }[]; explanation: string }[];
+}> {
+  // 1. Analyse de l'article
+  const analysis = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 1024,
+    system: `You analyse a single fashion item the user is considering buying. ${langInstruction(lang)}`,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+              data: base64,
+            },
+          },
+          { type: "text", text: "Identify this item: name, category, colors, short description." },
+        ],
+      },
+    ],
+    output_config: { format: zodOutputFormat(ShopAnalysisSchema) },
+  });
+  const item = analysis.parsed_output ?? {
+    name: "Article",
+    category: "accessoire",
+    colors: [],
+    description: "",
+  };
+
+  // 2. Compose des tenues de la garde-robe autour de l'article (non possédé)
+  const wardrobeForPrompt = wardrobe.map((g) => ({
+    id: g.id,
+    category: g.category,
+    type: g.type,
+    colors: g.colors,
+    material: g.material,
+    styles: g.styles,
+  }));
+  const prompt = `ARTICLE ENVISAGÉ À L'ACHAT (non encore possédé) : ${JSON.stringify(item)}
+GARDE-ROBE DE L'UTILISATEUR (JSON) : ${JSON.stringify(wardrobeForPrompt, null, 1)}
+Propose 2 à 3 tenues qui associent cet article avec des vêtements de la garde-robe (référencés par id exact). N'inclus PAS l'article lui-même dans items (il n'a pas d'id) — uniquement les pièces de la garde-robe qui vont avec. Chaque tenue doit être complète et cohérente avec l'article.`;
+
+  const compose = await client().messages.parse({
+    model: MODEL,
+    max_tokens: 4096,
+    thinking: { type: "adaptive" },
+    system: `You are a stylist showing how a not-yet-owned item would pair with the user's existing wardrobe. ${langInstruction(lang)}`,
+    messages: [{ role: "user", content: prompt }],
+    output_config: { format: zodOutputFormat(ShopOutfitsSchema) },
+  });
+
+  const validIds = new Set(wardrobe.map((g) => g.id));
+  const outfits = (compose.parsed_output?.outfits ?? [])
+    .map((o) => ({ ...o, items: o.items.filter((it) => validIds.has(it.garmentId)) }))
+    .filter((o) => o.items.length >= 1);
+
+  return { item, outfits };
+}
