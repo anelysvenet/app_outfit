@@ -68,12 +68,77 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Real background removal. The server does the whole pipeline (auto-orient →
- * matte → keep the garment → white background → light steaming) and returns the
- * finished images as data URLs. Returns { white, cutout }; falls back to the
- * original on any error.
+ * From a transparent (background-removed) image: keep the garment, crop tightly,
+ * lay a vertical garment horizontal, and return both a transparent cut-out and a
+ * white-background version. Used by the in-browser fallback below.
+ */
+async function buildFromTransparent(img: HTMLImageElement): Promise<{ white: string; cutout: string }> {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(0, 0, w, h).data;
+
+  // Bounding box of the opaque garment
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (d[(y * w + x) * 4 + 3] > 30) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) { minX = 0; minY = 0; maxX = w - 1; maxY = h - 1; }
+  const bw = maxX - minX + 1;
+  const bh = maxY - minY + 1;
+  const margin = Math.round(Math.max(bw, bh) * 0.05);
+  const cw = bw + margin * 2;
+  const ch = bh + margin * 2;
+
+  const cut = document.createElement("canvas");
+  cut.width = cw;
+  cut.height = ch;
+  cut.getContext("2d")!.drawImage(c, minX, minY, bw, bh, margin, margin, bw, bh);
+
+  // Vertical garment → rotate 90° so it lies horizontal
+  let finalCut: HTMLCanvasElement = cut;
+  if (bh > bw) {
+    const r = document.createElement("canvas");
+    r.width = ch;
+    r.height = cw;
+    const rx = r.getContext("2d")!;
+    rx.translate(ch, 0);
+    rx.rotate(Math.PI / 2);
+    rx.drawImage(cut, 0, 0);
+    finalCut = r;
+  }
+
+  const wcv = document.createElement("canvas");
+  wcv.width = finalCut.width;
+  wcv.height = finalCut.height;
+  const wx = wcv.getContext("2d")!;
+  wx.fillStyle = "#ffffff";
+  wx.fillRect(0, 0, wcv.width, wcv.height);
+  wx.drawImage(finalCut, 0, 0);
+
+  return { white: wcv.toDataURL("image/png"), cutout: finalCut.toDataURL("image/png") };
+}
+
+/**
+ * Real background removal. The server runs the full pipeline (auto-orient →
+ * matte → de-wrinkle → keep the garment → lay it horizontal). If that service is
+ * unavailable (e.g. no fal credit), we fall back to a free, in-browser matting
+ * model so detouring still works — just without the generative de-wrinkling.
+ * Returns { white, cutout }; falls back to the original only if everything fails.
  */
 async function processPhoto(dataUrl: string): Promise<{ white: string; cutout?: string }> {
+  // 1) Server pipeline (best quality + de-wrinkling when fal is available)
   try {
     const padded = await padImage(dataUrl);
     const res = await fetch("/api/garments/process", {
@@ -81,13 +146,32 @@ async function processPhoto(dataUrl: string): Promise<{ white: string; cutout?: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ photoDataUrl: padded }),
     });
-    if (!res.ok) return { white: dataUrl };
-    const data = await res.json();
-    if (data.skipped || !data.photoDataUrl) return { white: dataUrl };
-    return { white: data.photoDataUrl, cutout: data.cutoutDataUrl ?? undefined };
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.skipped && data.photoDataUrl) {
+        return { white: data.photoDataUrl, cutout: data.cutoutDataUrl ?? undefined };
+      }
+    }
   } catch {
-    return { white: dataUrl };
+    /* fall through to the in-browser model */
   }
+
+  // 2) Free in-browser background removal (no external service / no fal)
+  try {
+    const { removeBackground } = await import("@imgly/background-removal");
+    const blob = await removeBackground(dataUrl, { output: { format: "image/png" } });
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await loadImage(url);
+      return await buildFromTransparent(img);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  } catch (e) {
+    console.warn("[background-removal] fallback failed:", e);
+  }
+
+  return { white: dataUrl };
 }
 
 export default function PhotoInput({

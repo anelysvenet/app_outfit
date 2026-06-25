@@ -296,10 +296,14 @@ export async function POST(req: Request) {
       white[i + 3] = 255;
     }
 
-    const [cutoutPng, whitePng] = await Promise.all([
-      sharp(cut, { raw: { width: cw, height: ch, channels: 4 } }).png().toBuffer(),
-      sharp(white, { raw: { width: cw, height: ch, channels: 4 } }).png().toBuffer(),
-    ]);
+    // If the garment is vertical (portrait), lay it horizontal (landscape).
+    const vertical = bh > bw;
+    const mkPng = (buf: Buffer) => {
+      let p = sharp(buf, { raw: { width: cw, height: ch, channels: 4 } });
+      if (vertical) p = p.rotate(90);
+      return p.png().toBuffer();
+    };
+    const [cutoutPng, whitePng] = await Promise.all([mkPng(cut), mkPng(white)]);
 
     return NextResponse.json({
       // photo = white-bg (required field / try-on); cutout = transparent (display)
