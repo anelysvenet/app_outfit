@@ -9,8 +9,8 @@ import { CropIcon } from "./icons";
 
 /**
  * Decode a file with EXIF orientation already applied (consistent across browsers)
- * and downscale. Orientation of the garment itself is corrected later, after
- * background removal, based on the garment's bounding box.
+ * and downscale. The server pipeline also auto-orients, so the image is upright
+ * everywhere.
  */
 async function fileToDataUrl(file: File): Promise<string> {
   // imageOrientation "from-image" bakes in EXIF rotation, so width/height are visually correct
@@ -37,7 +37,7 @@ async function fileToDataUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.9);
 }
 
-/** Add a dark contrasting border so garment edges never touch the frame (prevents API clipping). */
+/** Add a neutral contrasting border so garment edges never touch the frame (prevents API clipping). */
 async function padImage(dataUrl: string, pct = 0.12): Promise<string> {
   const img = new Image();
   await new Promise<void>((resolve, reject) => {
@@ -57,42 +57,6 @@ async function padImage(dataUrl: string, pct = 0.12): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.9);
 }
 
-/**
- * Keep only the largest connected opaque region; zero out everything else.
- * Removes stray garment pieces sitting next to the main item.
- */
-function keepLargestComponent(alpha: Uint8Array, w: number, h: number) {
-  const n = w * h;
-  const label = new Int32Array(n).fill(-1);
-  const stack = new Int32Array(n);
-  let cur = 0;
-  let bestLabel = -1;
-  let bestSize = 0;
-
-  for (let i = 0; i < n; i++) {
-    if (alpha[i] === 0 || label[i] !== -1) continue;
-    let sp = 0;
-    stack[sp++] = i;
-    label[i] = cur;
-    let size = 0;
-    while (sp > 0) {
-      const p = stack[--sp];
-      size++;
-      const x = p % w;
-      const y = (p - x) / w;
-      if (x > 0) { const q = p - 1; if (alpha[q] && label[q] === -1) { label[q] = cur; stack[sp++] = q; } }
-      if (x < w - 1) { const q = p + 1; if (alpha[q] && label[q] === -1) { label[q] = cur; stack[sp++] = q; } }
-      if (y > 0) { const q = p - w; if (alpha[q] && label[q] === -1) { label[q] = cur; stack[sp++] = q; } }
-      if (y < h - 1) { const q = p + w; if (alpha[q] && label[q] === -1) { label[q] = cur; stack[sp++] = q; } }
-    }
-    if (size > bestSize) { bestSize = size; bestLabel = cur; }
-    cur++;
-  }
-  return { label, bestLabel };
-}
-
-type LogoBox = { x: number; y: number; w: number; h: number };
-
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const im = new Image();
@@ -103,269 +67,12 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Paste the real logo pixels from the original photo back over the ironed
- *  garment (feathered, within the silhouette) so prints stay authentic. */
-async function pasteLogos(
-  mctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  originalSrc: string,
-  boxes: LogoBox[],
-) {
-  if (!boxes.length) return;
-  const orig = await loadImage(originalSrc);
-  const OW = orig.naturalWidth;
-  const OH = orig.naturalHeight;
-  for (const b of boxes) {
-    const dw = Math.max(1, Math.round(b.w * w));
-    const dh = Math.max(1, Math.round(b.h * h));
-    const dx = Math.round(b.x * w);
-    const dy = Math.round(b.y * h);
-    const fc = document.createElement("canvas");
-    fc.width = dw;
-    fc.height = dh;
-    const fctx = fc.getContext("2d", { willReadFrequently: true })!;
-    fctx.drawImage(orig, b.x * OW, b.y * OH, b.w * OW, b.h * OH, 0, 0, dw, dh);
-    const fid = fctx.getImageData(0, 0, dw, dh);
-    const p = fid.data;
-    const fm = Math.max(2, Math.min(dw, dh) * 0.16);
-    for (let y = 0; y < dh; y++) {
-      for (let x = 0; x < dw; x++) {
-        const edge = Math.min(x, y, dw - 1 - x, dh - 1 - y);
-        const f = Math.max(0, Math.min(1, edge / fm));
-        p[(y * dw + x) * 4 + 3] *= f;
-      }
-    }
-    fctx.putImageData(fid, 0, 0);
-    mctx.save();
-    mctx.globalCompositeOperation = "source-atop";
-    mctx.drawImage(fc, dx, dy, dw, dh);
-    mctx.restore();
-  }
-}
-
 /**
- * Edge-preserving smoothing ("ironing") — non-generative. Averages a pixel with
- * a blurred copy only in low-contrast areas (soft wrinkle shadows), while strong
- * edges (logos, prints, seams) are left untouched. It never invents pixels, so
- * colours, prints and shape stay faithful.
+ * Real background removal. The server does the whole pipeline (auto-orient →
+ * matte → keep the garment → white background → light steaming) and returns the
+ * finished images as data URLs. Returns { white, cutout }; falls back to the
+ * original on any error.
  */
-function smoothFabric(src: HTMLCanvasElement): HTMLCanvasElement {
-  const w = src.width;
-  const h = src.height;
-
-  const blurred = document.createElement("canvas");
-  blurred.width = w;
-  blurred.height = h;
-  const bctx = blurred.getContext("2d")!;
-  bctx.filter = `blur(${Math.max(2, Math.round(Math.min(w, h) * 0.012))}px)`;
-  bctx.drawImage(src, 0, 0);
-  bctx.filter = "none";
-
-  const sctx = src.getContext("2d", { willReadFrequently: true })!;
-  const o = sctx.getImageData(0, 0, w, h);
-  const od = o.data;
-  const bd = blurred.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
-
-  const amount = 0.75; // max smoothing in flat areas
-  const thr = 46; // edge sensitivity — above this, detail is preserved
-  for (let i = 0; i < od.length; i += 4) {
-    const de =
-      Math.abs(od[i] - bd[i]) +
-      Math.abs(od[i + 1] - bd[i + 1]) +
-      Math.abs(od[i + 2] - bd[i + 2]);
-    const a = Math.max(0, 1 - de / thr) * amount;
-    od[i] = od[i] * (1 - a) + bd[i] * a;
-    od[i + 1] = od[i + 1] * (1 - a) + bd[i + 1] * a;
-    od[i + 2] = od[i + 2] * (1 - a) + bd[i + 2] * a;
-  }
-
-  const out = document.createElement("canvas");
-  out.width = w;
-  out.height = h;
-  out.getContext("2d")!.putImageData(o, 0, 0);
-  return out;
-}
-
-/**
- * Make background-connected near-white pixels transparent. Starts from the image
- * border and flows through already-transparent + near-white pixels, so leftover
- * background the matte missed — typically the gap BETWEEN trouser legs (reachable
- * via the opening at the hems) — gets cut out. Interior white that is enclosed by
- * the garment (e.g. a white top) is preserved.
- */
-function openBackground(d: Uint8ClampedArray, w: number, h: number) {
-  const n = w * h;
-  const seen = new Uint8Array(n);
-  const stack: number[] = [];
-  // Only near-PURE white (studio backdrop) is treated as background, so real
-  // (slightly shaded) white garments are not eaten into.
-  const removable = (p: number) => {
-    const o = p * 4;
-    return d[o + 3] < 30 || (d[o] > 248 && d[o + 1] > 248 && d[o + 2] > 248);
-  };
-  for (let x = 0; x < w; x++) {
-    stack.push(x, (h - 1) * w + x);
-  }
-  for (let y = 0; y < h; y++) {
-    stack.push(y * w, y * w + w - 1);
-  }
-  while (stack.length) {
-    const p = stack.pop()!;
-    if (seen[p]) continue;
-    seen[p] = 1;
-    if (!removable(p)) continue;
-    d[p * 4 + 3] = 0;
-    const x = p % w;
-    const y = (p - x) / w;
-    if (x > 0) stack.push(p - 1);
-    if (x < w - 1) stack.push(p + 1);
-    if (y > 0) stack.push(p - w);
-    if (y < h - 1) stack.push(p + w);
-  }
-}
-
-
-/**
- * From the background-removed PNG, keep only the main garment, crop to it and
- * straighten it to portrait. Returns BOTH a transparent cut-out (true alpha —
- * so the gap between trouser legs is see-through) and the same on a white 3:4
- * canvas (used in grids and virtual try-on).
- */
-async function buildImages(
-  transparentDataUrl: string,
-  opts?: { ironedDataUrl?: string | null; originalSrc?: string; logoBoxes?: LogoBox[] },
-): Promise<{ white: string; cutout: string }> {
-  const img = await loadImage(transparentDataUrl);
-
-  const w = img.naturalWidth;
-  const h = img.naturalHeight;
-  const mask = document.createElement("canvas");
-  mask.width = w;
-  mask.height = h;
-  const mctx = mask.getContext("2d", { willReadFrequently: true })!;
-  mctx.drawImage(img, 0, 0); // alpha + original RGB from BiRefNet on the ORIGINAL
-
-  // Overlay the ironed RGB only inside the silhouette (keeps the real alpha,
-  // e.g. the gap between trouser legs)
-  if (opts?.ironedDataUrl) {
-    try {
-      const ironed = await loadImage(opts.ironedDataUrl);
-      mctx.save();
-      mctx.globalCompositeOperation = "source-atop";
-      mctx.drawImage(ironed, 0, 0, w, h);
-      mctx.restore();
-    } catch (e) {
-      console.warn("[ironed overlay] failed:", e);
-    }
-  }
-
-  // Restore the real logos over the ironed fabric
-  if (opts?.originalSrc && opts.logoBoxes && opts.logoBoxes.length) {
-    try {
-      await pasteLogos(mctx, w, h, opts.originalSrc, opts.logoBoxes);
-    } catch (e) {
-      console.warn("[pasteLogos] failed:", e);
-    }
-  }
-
-  const imageData = mctx.getImageData(0, 0, w, h);
-  const d = imageData.data;
-  const n = w * h;
-
-  // Cut leftover background connected to the border (e.g. between trouser legs)
-  openBackground(d, w, h);
-
-  // Threshold alpha to binary → crisp edges, no semi-transparent fringe
-  const alpha = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    const a = d[i * 4 + 3] > 30 ? 1 : 0;
-    alpha[i] = a;
-    d[i * 4 + 3] = a ? 255 : 0;
-  }
-
-  // Keep only the largest connected region; compute its bounding box on the way
-  const { label, bestLabel } = keepLargestComponent(alpha, w, h);
-  let minX = w, minY = h, maxX = -1, maxY = -1;
-  for (let i = 0; i < n; i++) {
-    if (label[i] === bestLabel) {
-      const x = i % w;
-      const y = (i - x) / w;
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-    } else {
-      d[i * 4 + 3] = 0; // strip stray pieces
-    }
-  }
-  mctx.putImageData(imageData, 0, 0);
-
-  // No garment detected → fall back to the raw matte on white
-  if (maxX < 0) {
-    const fb = document.createElement("canvas");
-    fb.width = w;
-    fb.height = h;
-    const fctx = fb.getContext("2d")!;
-    fctx.fillStyle = "#ffffff";
-    fctx.fillRect(0, 0, w, h);
-    fctx.drawImage(mask, 0, 0);
-    return { white: fb.toDataURL("image/png"), cutout: mask.toDataURL("image/png") };
-  }
-
-  // Crop tightly to the garment
-  const bw = maxX - minX + 1;
-  const bh = maxY - minY + 1;
-  const crop = document.createElement("canvas");
-  crop.width = bw;
-  crop.height = bh;
-  crop.getContext("2d")!.drawImage(mask, minX, minY, bw, bh, 0, 0, bw, bh);
-
-  // Keep the garment's ORIGINAL orientation — just add a small uniform margin so
-  // nothing is edge-to-edge. object-contain then shows the whole piece.
-  const gCanvas: HTMLCanvasElement = crop;
-  const gW = bw;
-  const gH = bh;
-  const margin = Math.round(Math.max(gW, gH) * 0.05);
-  const cw = gW + margin * 2;
-  const ch = gH + margin * 2;
-  const dx = margin;
-  const dy = margin;
-
-  // Transparent cut-out (keeps the real alpha, e.g. between trouser legs)
-  const cut = document.createElement("canvas");
-  cut.width = cw;
-  cut.height = ch;
-  const cctx = cut.getContext("2d")!;
-  cctx.filter = "contrast(1.05) saturate(1.08)";
-  cctx.drawImage(gCanvas, dx, dy);
-  cctx.filter = "none";
-
-  // White-background version, then edge-preserving smoothing ("ironing")
-  const whiteFlat = document.createElement("canvas");
-  whiteFlat.width = cw;
-  whiteFlat.height = ch;
-  const wfctx = whiteFlat.getContext("2d")!;
-  wfctx.fillStyle = "#ffffff";
-  wfctx.fillRect(0, 0, cw, ch);
-  wfctx.drawImage(cut, 0, 0);
-  const smoothed = smoothFabric(whiteFlat); // opaque, wrinkles softened
-
-  // Re-apply the real alpha to get the smoothed transparent cut-out
-  const smoothedCut = document.createElement("canvas");
-  smoothedCut.width = cw;
-  smoothedCut.height = ch;
-  const scctx = smoothedCut.getContext("2d", { willReadFrequently: true })!;
-  scctx.drawImage(smoothed, 0, 0);
-  const sd = scctx.getImageData(0, 0, cw, ch);
-  const alphaSrc = cut.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, cw, ch).data;
-  for (let i = 3; i < sd.data.length; i += 4) sd.data[i] = alphaSrc[i];
-  scctx.putImageData(sd, 0, 0);
-
-  return { white: smoothed.toDataURL("image/png"), cutout: smoothedCut.toDataURL("image/png") };
-}
-
-/** Background removal. Returns { white, cutout }; falls back to the original. */
 async function processPhoto(dataUrl: string): Promise<{ white: string; cutout?: string }> {
   try {
     const padded = await padImage(dataUrl);
@@ -376,12 +83,8 @@ async function processPhoto(dataUrl: string): Promise<{ white: string; cutout?: 
     });
     if (!res.ok) return { white: dataUrl };
     const data = await res.json();
-    if (data.skipped || !data.transparentDataUrl) return { white: dataUrl };
-    return await buildImages(data.transparentDataUrl, {
-      ironedDataUrl: data.ironedDataUrl,
-      originalSrc: padded,
-      logoBoxes: data.logoBoxes ?? [],
-    });
+    if (data.skipped || !data.photoDataUrl) return { white: dataUrl };
+    return { white: data.photoDataUrl, cutout: data.cutoutDataUrl ?? undefined };
   } catch {
     return { white: dataUrl };
   }
@@ -504,8 +207,8 @@ export default function PhotoInput({
                 if (d[i] < 250) { hasAlpha = true; break; }
               }
               if (hasAlpha) {
-                // Keep the erased cut-out transparent for the render, and a
-                // white-bg version for grids/try-on
+                // Manual erase: respect the user's cut-out. Keep it transparent for
+                // the render and make a white-bg version for grids / try-on.
                 onCutout?.(edited);
                 const wc = document.createElement("canvas");
                 wc.width = c.width;
@@ -516,7 +219,17 @@ export default function PhotoInput({
                 wx.drawImage(im, 0, 0);
                 onChange(wc.toDataURL("image/png"));
               } else {
-                onChange(edited);
+                // Crop / rotation: re-run the real detouring pipeline so the result
+                // is the final processed image, not just the cropped one.
+                onChange(edited); // immediate preview while it processes
+                setProcessing(true);
+                try {
+                  const processed = await processPhoto(edited);
+                  onChange(processed.white);
+                  if (processed.cutout) onCutout?.(processed.cutout);
+                } finally {
+                  setProcessing(false);
+                }
               }
             } catch {
               onChange(edited);
