@@ -23,24 +23,18 @@ async function toBase64(url: string): Promise<string | null> {
   return `data:${mime};base64,${Buffer.from(await r.arrayBuffer()).toString("base64")}`;
 }
 
-// Premium e-commerce "steaming" prompt (Zara-like flat lay). Background is
-// handled separately by BiRefNet, and logos/buttons are pasted back client-side.
-function steamPrompt(kind: string): string {
-  const base =
-    "Premium e-commerce product photography of the exact same clothing item. " +
-    "Keep the garment EXACTLY as it is: preserve the shape, proportions and stitching, " +
-    "preserve the exact color and fabric texture, do not redesign or invent details. " +
-    "Remove all wrinkles and fold marks (from lying flat) while keeping natural fabric drape, " +
-    "smooth the fabric as if professionally steamed. Perfect flat-lay presentation, " +
-    "pure white seamless background, soft diffused studio lighting, subtle natural shadow underneath, " +
-    "no hanger, no mannequin, no props, ultra sharp, luxury fashion catalog style, 4K.";
-  const extra =
-    kind === "bottom"
-      ? " Straighten both legs. Keep both sides perfectly symmetrical. Remove all fold marks. Maintain crisp seams."
-      : kind === "top" || kind === "dress"
-        ? " Make the garment look professionally steamed. Straighten the straps. Symmetrize the silhouette. Keep the hems perfectly aligned."
-        : "";
-  return base + extra;
+// Conservative e-commerce prompt: the garment must remain IDENTICAL — only the
+// background is replaced and bed/table wrinkles are gently reduced (steamed look),
+// never over-smoothed or AI-looking. Background is also matted by BiRefNet and
+// logos/buttons are pasted back client-side.
+function steamPrompt(): string {
+  return [
+    "You are an ecommerce fashion image processor. Your job is NOT to redesign, recreate or modify the garment. The garment must remain IDENTICAL.",
+    "Allowed operations ONLY: 1) Remove the existing background. 2) Replace it with a pure white background (#FFFFFF). 3) Preserve every detail of the garment: seams, folds, buttons, embroidery, rhinestones, lace, logos, labels, texture, stitching. 4) Keep the exact original shape. 5) Keep the exact original colors. 6) Do NOT change the proportions. 7) Do NOT add missing parts. 8) Do NOT remove any details. 9) Do NOT smooth fabric unnaturally.",
+    "Wrinkle handling: Only reduce wrinkles caused by the garment lying on a bed or table. Never make the garment look computer generated. Never make the fabric perfectly flat. Keep all natural draping and construction. The final result should look like the garment has simply been steamed before being photographed.",
+    "Output: A realistic ecommerce product photo on a pure white background.",
+    "Never: redesign the garment, recreate missing areas, remove logos, remove embroidery, remove rhinestones, remove labels, remove stitching, change the neckline, change sleeves, change fabric texture, invent details, generate a new garment, over-smooth the fabric, make the garment look AI generated.",
+  ].join(" ");
 }
 
 /** Generative "ironing": smooths the fabric. The client restores the real
@@ -51,7 +45,7 @@ async function dewrinkle(imageUrl: string, prompt: string): Promise<string | nul
     const res = await falPost("fal-ai/flux/dev/image-to-image", {
       image_url: imageUrl,
       prompt,
-      strength: 0.42,
+      strength: 0.3,
       num_inference_steps: 32,
       guidance_scale: 3.5,
       seed: 42,
@@ -94,7 +88,7 @@ export async function POST(req: Request) {
       kind: "other",
     }));
     const [ironedRaw, birefRes] = await Promise.all([
-      detection.ironable ? dewrinkle(imageUrl, steamPrompt(detection.kind)) : Promise.resolve(null),
+      detection.ironable ? dewrinkle(imageUrl, steamPrompt()) : Promise.resolve(null),
       falPost("fal-ai/birefnet", {
         image_url: imageUrl,
         model: "General Use (Heavy)",
