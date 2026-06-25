@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { readDb } from "@/lib/db";
 import { analyzeAndPairItem } from "@/lib/ai";
 import { parseDataUrl } from "@/lib/storage";
+import { removeBackgroundToDataUrl } from "@/lib/bgremove";
 
 export const maxDuration = 120;
 
@@ -26,9 +27,13 @@ export async function POST(req: Request) {
     }
 
     const { base64, mediaType } = parseDataUrl(photoDataUrl);
-    const result = await analyzeAndPairItem(base64, mediaType, wardrobe, user.language);
+    // Pair with the wardrobe and detour the item in parallel
+    const [result, itemCutout] = await Promise.all([
+      analyzeAndPairItem(base64, mediaType, wardrobe, user.language),
+      removeBackgroundToDataUrl(base64, mediaType),
+    ]);
 
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, itemCutout });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Analyse impossible";
     return NextResponse.json({ error: message }, { status: 500 });

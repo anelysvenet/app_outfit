@@ -11,6 +11,7 @@ import type { Garment } from "@/lib/types";
 type ShopResult = {
   item: { name: string; category: string; colors: string[]; description: string };
   outfits: { title: string; items: { garmentId: string; role: string }[]; explanation: string }[];
+  itemCutout?: string | null;
 };
 
 async function fileToDataUrl(file: File): Promise<string> {
@@ -44,6 +45,7 @@ export default function ShopPage() {
   const [result, setResult] = useState<ShopResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/garments").then((r) => r.json()).then((d) => setGarments(d.garments ?? []));
@@ -64,6 +66,9 @@ export default function ShopPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Analyse impossible");
       setResult(data);
+      requestAnimationFrame(() =>
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analyse impossible");
     } finally {
@@ -130,7 +135,7 @@ export default function ShopPage() {
         </div>
 
         {/* Results */}
-        <div>
+        <div ref={resultsRef} className="scroll-mt-6">
           {loading ? (
             <div className="rounded-2xl bg-sand/40 p-6">
               <LogoLoader label={t("shop.analyzing")} />
@@ -151,11 +156,17 @@ export default function ShopPage() {
                   >
                     <p className="font-display text-xl">{o.title}</p>
                     <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-ivory p-3">
-                      {/* The item being considered */}
-                      {photo && (
+                      {/* The item being considered (detoured) */}
+                      {(result.itemCutout || photo) && (
                         <div className="flex flex-col items-center">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={photo} alt="" className="h-24 w-20 rounded-lg object-cover ring-2 ring-gold" />
+                          <div className="flex h-24 w-20 items-center justify-center rounded-lg ring-2 ring-gold">
+                            {result.itemCutout ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={result.itemCutout} alt="" className="max-h-full max-w-full object-contain" />
+                            ) : (
+                              <CutoutImage src={photo!} alt="" className="max-h-full max-w-full object-contain" />
+                            )}
+                          </div>
                           <span className="mt-1 text-[9px] uppercase tracking-wider text-gold">{t("shop.the_item")}</span>
                         </div>
                       )}
