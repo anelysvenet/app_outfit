@@ -7,19 +7,27 @@ import { orientShoeImage } from "@/lib/shoes";
 export const maxDuration = 300;
 
 /**
- * Re-orients every already-saved shoe of the current user to the mandatory
- * layout (side profile, horizontal, toe right, centered, transparent PNG).
+ * Re-orients already-saved shoes of the current user to the mandatory layout
+ * (side profile, horizontal, toe right, centered, transparent PNG). With an
+ * optional `{ id }` body, only that single shoe is corrected; otherwise every
+ * shoe is processed. Returns the updated garment(s).
  */
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
 
+    const body = (await req.json().catch(() => ({}))) as { id?: string };
+
     const db = await readDb();
     const shoes = db.garments.filter(
-      (g) => g.userId === user.id && !g.deleted && g.category === "chaussures",
+      (g) =>
+        g.userId === user.id &&
+        !g.deleted &&
+        g.category === "chaussures" &&
+        (!body.id || g.id === body.id),
     );
-    if (!shoes.length) return NextResponse.json({ fixed: 0, total: 0 });
+    if (!shoes.length) return NextResponse.json({ fixed: 0, total: 0, garments: [] });
 
     let fixed = 0;
     const updates: Record<string, { photo: string; cutout?: string }> = {};
@@ -40,6 +48,7 @@ export async function POST() {
       fixed++;
     }
 
+    let updatedGarments: typeof db.garments = [];
     if (fixed) {
       await mutateDb((d) => {
         for (const item of d.garments) {
@@ -49,10 +58,15 @@ export async function POST() {
             item.cutout = u.cutout;
           }
         }
+        updatedGarments = d.garments.filter((item) => updates[item.id]);
       });
     }
 
-    return NextResponse.json({ fixed, total: shoes.length });
+    return NextResponse.json({
+      fixed,
+      total: shoes.length,
+      garments: updatedGarments,
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Correction impossible";
     return NextResponse.json({ error: message }, { status: 500 });

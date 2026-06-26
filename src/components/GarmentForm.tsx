@@ -101,6 +101,7 @@ export default function GarmentForm({
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [fixingShoes, setFixingShoes] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const detailRef = useRef<HTMLDivElement>(null);
 
@@ -207,6 +208,34 @@ export default function GarmentForm({
     }
   }
 
+  // Re-orient this single shoe to the mandatory layout (side profile, toe right)
+  async function fixShoeOrientation() {
+    if (!existing) return;
+    setFixingShoes(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/garments/fix-shoes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: existing.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? `Correction impossible (erreur ${res.status})`);
+      }
+      const updated = data.garments?.[0];
+      if (updated) {
+        setPhoto(updated.photo);
+        setCutout(null);
+        onSaved(updated);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Correction impossible");
+    } finally {
+      setFixingShoes(false);
+    }
+  }
+
   return (
     <div className="grid gap-6 sm:grid-cols-[240px_1fr]">
       <div className="space-y-3">
@@ -228,6 +257,16 @@ export default function GarmentForm({
         <p className="text-xs text-smoke leading-relaxed">
           {t("form.analyze_sub")}
         </p>
+        {existing?.category === "chaussures" && (
+          <button
+            type="button"
+            onClick={fixShoeOrientation}
+            disabled={fixingShoes}
+            className="w-full rounded-full border border-linen px-4 py-2.5 text-sm text-ink transition hover:border-gold disabled:opacity-60 cursor-pointer"
+          >
+            {fixingShoes ? t("dressing.fixing_shoes") : t("dressing.fix_shoes")}
+          </button>
+        )}
       </div>
 
       <div className="space-y-4" ref={detailRef}>
