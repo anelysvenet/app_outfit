@@ -49,15 +49,16 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 /**
  * Steps 5–9, working from a TRANSPARENT image only (never the full photo):
  *  5. measure the garment's bounding box,
- *  6. auto-straighten: if the garment is lying down (landscape), rotate it 90°
- *     so it stands UPRIGHT (portrait) — automatically, nothing to do by hand,
+ *  6. auto-straighten: if autoRotate is true AND the garment is lying down
+ *     (landscape), rotate it 90° so it stands UPRIGHT (portrait).
+ *     Pass autoRotate=false to preserve the orientation the user chose manually.
  *  7. keep the exact proportions (no stretching),
  *  8. place it in a transparent canvas with a margin all around so it fits the
  *     frame,
  *  9. centered.
  * Returns a transparent PNG data URL.
  */
-function layoutGarment(img: HTMLImageElement): string {
+function layoutGarment(img: HTMLImageElement, autoRotate = true): string {
   const w = img.naturalWidth;
   const h = img.naturalHeight;
   const c = document.createElement("canvas");
@@ -88,12 +89,13 @@ function layoutGarment(img: HTMLImageElement): string {
   crop.height = bh;
   crop.getContext("2d")!.drawImage(c, minX, minY, bw, bh, 0, 0, bw, bh);
 
-  // (6–7) if the garment is lying down (wider than tall), rotate it 90° clockwise
-  // so it stands upright (taller than wide). Proportions preserved.
+  // (6–7) if the garment is lying down (wider than tall) AND autoRotate is enabled,
+  // rotate it 90° clockwise so it stands upright. Proportions preserved.
+  // autoRotate=false when the user has explicitly chosen an orientation.
   let g: HTMLCanvasElement = crop;
   let gw = bw;
   let gh = bh;
-  if (bw > bh) {
+  if (autoRotate && bw > bh) {
     const r = document.createElement("canvas");
     r.width = bh;
     r.height = bw;
@@ -123,14 +125,14 @@ function layoutGarment(img: HTMLImageElement): string {
  * model (works even when fal.ai is down — FLUX is NEVER used for detouring), then
  * lay it out. Returns a transparent PNG, or null on failure.
  */
-async function detour(dataUrl: string): Promise<string | null> {
+async function detour(dataUrl: string, autoRotate = true): Promise<string | null> {
   try {
     const { removeBackground } = await import("@imgly/background-removal");
     const blob = await removeBackground(dataUrl, { output: { format: "image/png" } });
     const url = URL.createObjectURL(blob);
     try {
       const img = await loadImage(url);
-      return layoutGarment(img);
+      return layoutGarment(img, autoRotate);
     } finally {
       URL.revokeObjectURL(url);
     }
@@ -172,11 +174,15 @@ async function finishTransparent(transparent: string): Promise<{ white: string; 
  * de-wrinkle). The output is a transparent PNG with no white background. Falls
  * back to the original only if even the in-browser detour fails.
  */
-async function processPhoto(dataUrl: string): Promise<{ white: string; cutout?: string }> {
-  const transparent = await detour(dataUrl);
+async function processPhoto(dataUrl: string, autoRotate = true): Promise<{ white: string; cutout?: string }> {
+  const transparent = await detour(dataUrl, autoRotate);
   if (!transparent) return { white: dataUrl };
   return finishTransparent(transparent);
 }
+
+// Categories worn upright on the body — auto-rotate landscape → portrait for these.
+// Accessories that lie flat (belts, glasses, jewellery…) keep their natural orientation.
+const UPRIGHT_CATEGORIES = new Set(["haut", "bas", "robe", "combinaison", "veste"]);
 
 export default function PhotoInput({
   value,
@@ -184,13 +190,16 @@ export default function PhotoInput({
   onCutout,
   label,
   aspect = "aspect-[3/4]",
+  category,
 }: {
   value: string | null;
   onChange: (dataUrl: string) => void;
   onCutout?: (dataUrl: string) => void;
   label: string;
   aspect?: string;
+  category?: string;
 }) {
+  const autoRotate = !category || UPRIGHT_CATEGORIES.has(category);
   const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -215,7 +224,7 @@ export default function PhotoInput({
 
             // (2–10) detour → layout → de-wrinkle (non-blocking, falls back)
             setProcessing(true);
-            const processed = await processPhoto(dataUrl);
+            const processed = await processPhoto(dataUrl, autoRotate);
             onChange(processed.white);
             if (processed.cutout) onCutout?.(processed.cutout);
           } finally {
@@ -295,11 +304,11 @@ export default function PhotoInput({
               for (let i = 3; i < d.length; i += 4) {
                 if (d[i] < 250) { hasAlpha = true; break; }
               }
-              // "Apply" runs the FULL pipeline (detour → rotate → resize → center
-              // → light de-wrinkle), never just a crop/rotation of the original.
+              // "Apply" runs the full pipeline but NEVER re-rotates: the user has
+              // just set the orientation they want, so autoRotate is always false here.
               const result = hasAlpha
-                ? await finishTransparent(layoutGarment(im)) // already a cut-out → lay out + de-wrinkle
-                : await processPhoto(edited); // opaque crop → detour + full pipeline
+                ? await finishTransparent(layoutGarment(im, false)) // respect user's orientation
+                : await processPhoto(edited, autoRotate); // fresh upload → honour category rule
               onChange(result.white);
               if (result.cutout) onCutout?.(result.cutout);
             } catch {

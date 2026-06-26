@@ -215,6 +215,7 @@ export default function GarmentForm({
           onChange={setPhoto}
           onCutout={setCutout}
           label={t("form.photo_label")}
+          category={draft.category}
         />
         <button
           type="button"
