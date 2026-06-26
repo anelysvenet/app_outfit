@@ -8,12 +8,11 @@ import ErrorBoundary from "./ErrorBoundary";
 import { CropIcon } from "./icons";
 
 /**
- * Decode a file with EXIF orientation already applied (consistent across browsers)
- * and downscale. The server pipeline also auto-orients, so the image is upright
- * everywhere.
+ * Decode a file with EXIF orientation already applied (consistent across
+ * browsers) and downscale. This is step 1 of the pipeline: the image is upright
+ * before anything else touches it.
  */
 async function fileToDataUrl(file: File): Promise<string> {
-  // imageOrientation "from-image" bakes in EXIF rotation, so width/height are visually correct
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
@@ -37,26 +36,6 @@ async function fileToDataUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.9);
 }
 
-/** Add a neutral contrasting border so garment edges never touch the frame (prevents API clipping). */
-async function padImage(dataUrl: string, pct = 0.12): Promise<string> {
-  const img = new Image();
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-  const px = Math.round(img.naturalWidth * pct);
-  const py = Math.round(img.naturalHeight * pct);
-  const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth + px * 2;
-  canvas.height = img.naturalHeight + py * 2;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#8a8a8a"; // neutral mid-grey — distinct from black, navy AND white
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, px, py);
-  return canvas.toDataURL("image/jpeg", 0.9);
-}
-
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const im = new Image();
@@ -68,11 +47,15 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * From a transparent (background-removed) image: keep the garment, crop tightly,
- * lay a vertical garment horizontal, and return both a transparent cut-out and a
- * white-background version. Used by the in-browser fallback below.
+ * Steps 5–9, working from a TRANSPARENT image only (never the full photo):
+ *  5. measure the garment's bounding box,
+ *  6. rotate ONLY the garment 90° if it is vertical, so it lies horizontal,
+ *  7. keep the exact proportions (no stretching),
+ *  8. place it in a landscape transparent canvas with a margin all around,
+ *  9. centered.
+ * Returns a transparent PNG data URL.
  */
-async function buildFromTransparent(img: HTMLImageElement): Promise<{ white: string; cutout: string }> {
+function layoutGarment(img: HTMLImageElement): string {
   const w = img.naturalWidth;
   const h = img.naturalHeight;
   const c = document.createElement("canvas");
@@ -82,7 +65,7 @@ async function buildFromTransparent(img: HTMLImageElement): Promise<{ white: str
   ctx.drawImage(img, 0, 0);
   const d = ctx.getImageData(0, 0, w, h).data;
 
-  // Bounding box of the opaque garment
+  // (5) bounding box of the opaque garment
   let minX = w, minY = h, maxX = -1, maxY = -1;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -97,81 +80,98 @@ async function buildFromTransparent(img: HTMLImageElement): Promise<{ white: str
   if (maxX < 0) { minX = 0; minY = 0; maxX = w - 1; maxY = h - 1; }
   const bw = maxX - minX + 1;
   const bh = maxY - minY + 1;
-  const margin = Math.round(Math.max(bw, bh) * 0.05);
-  const cw = bw + margin * 2;
-  const ch = bh + margin * 2;
 
-  const cut = document.createElement("canvas");
-  cut.width = cw;
-  cut.height = ch;
-  cut.getContext("2d")!.drawImage(c, minX, minY, bw, bh, margin, margin, bw, bh);
+  const crop = document.createElement("canvas");
+  crop.width = bw;
+  crop.height = bh;
+  crop.getContext("2d")!.drawImage(c, minX, minY, bw, bh, 0, 0, bw, bh);
 
-  // Vertical garment → rotate 90° so it lies horizontal
-  let finalCut: HTMLCanvasElement = cut;
+  // (6) rotate the garment 90° if vertical → horizontal (proportions preserved)
+  let g: HTMLCanvasElement = crop;
+  let gw = bw;
+  let gh = bh;
   if (bh > bw) {
     const r = document.createElement("canvas");
-    r.width = ch;
-    r.height = cw;
+    r.width = bh;
+    r.height = bw;
     const rx = r.getContext("2d")!;
-    rx.translate(ch, 0);
+    rx.translate(bh, 0);
     rx.rotate(Math.PI / 2);
-    rx.drawImage(cut, 0, 0);
-    finalCut = r;
+    rx.drawImage(crop, 0, 0);
+    g = r;
+    gw = bh;
+    gh = bw;
   }
 
-  const wcv = document.createElement("canvas");
-  wcv.width = finalCut.width;
-  wcv.height = finalCut.height;
-  const wx = wcv.getContext("2d")!;
-  wx.fillStyle = "#ffffff";
-  wx.fillRect(0, 0, wcv.width, wcv.height);
-  wx.drawImage(finalCut, 0, 0);
-
-  return { white: wcv.toDataURL("image/png"), cutout: finalCut.toDataURL("image/png") };
+  // (8–9) landscape transparent canvas, uniform margin all around, centered
+  const margin = Math.round(Math.max(gw, gh) * 0.08);
+  const cw = gw + margin * 2;
+  const ch = gh + margin * 2;
+  const out = document.createElement("canvas");
+  out.width = cw;
+  out.height = ch;
+  out.getContext("2d")!.drawImage(g, margin, margin);
+  return out.toDataURL("image/png");
 }
 
 /**
- * Real background removal. The server runs the full pipeline (auto-orient →
- * matte → de-wrinkle → keep the garment → lay it horizontal). If that service is
- * unavailable (e.g. no fal credit), we fall back to a free, in-browser matting
- * model so detouring still works — just without the generative de-wrinkling.
- * Returns { white, cutout }; falls back to the original only if everything fails.
+ * Steps 2–4 + 5–9: detour the garment with a real, in-browser background-removal
+ * model (works even when fal.ai is down — FLUX is NEVER used for detouring), then
+ * lay it out. Returns a transparent PNG, or null on failure.
  */
-async function processPhoto(dataUrl: string): Promise<{ white: string; cutout?: string }> {
-  // 1) Server pipeline (best quality + de-wrinkling when fal is available)
-  try {
-    const padded = await padImage(dataUrl);
-    const res = await fetch("/api/garments/process", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photoDataUrl: padded }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (!data.skipped && data.photoDataUrl) {
-        return { white: data.photoDataUrl, cutout: data.cutoutDataUrl ?? undefined };
-      }
-    }
-  } catch {
-    /* fall through to the in-browser model */
-  }
-
-  // 2) Free in-browser background removal (no external service / no fal)
+async function detour(dataUrl: string): Promise<string | null> {
   try {
     const { removeBackground } = await import("@imgly/background-removal");
     const blob = await removeBackground(dataUrl, { output: { format: "image/png" } });
     const url = URL.createObjectURL(blob);
     try {
       const img = await loadImage(url);
-      return await buildFromTransparent(img);
+      return layoutGarment(img);
     } finally {
       URL.revokeObjectURL(url);
     }
   } catch (e) {
-    console.warn("[background-removal] fallback failed:", e);
+    console.warn("[detour] failed:", e);
+    return null;
   }
+}
 
-  return { white: dataUrl };
+/**
+ * Step 10 (LAST, optional): if FLUX is available, apply a very light de-wrinkle
+ * to the already-detoured garment. Returns the de-wrinkled transparent PNG, or
+ * null if the service is unavailable (in which case we keep the detoured PNG).
+ */
+async function dewrinkle(transparentDataUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch("/api/garments/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoDataUrl: transparentDataUrl }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return !data.skipped && data.transparentDataUrl ? data.transparentDataUrl : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Apply the optional last step to a transparent garment PNG. */
+async function finishTransparent(transparent: string): Promise<{ white: string; cutout: string }> {
+  const ironed = await dewrinkle(transparent);
+  const final = ironed ?? transparent;
+  return { white: final, cutout: final };
+}
+
+/**
+ * Full pipeline for a raw photo: detour → orient/rotate/resize/center → (light
+ * de-wrinkle). The output is a transparent PNG with no white background. Falls
+ * back to the original only if even the in-browser detour fails.
+ */
+async function processPhoto(dataUrl: string): Promise<{ white: string; cutout?: string }> {
+  const transparent = await detour(dataUrl);
+  if (!transparent) return { white: dataUrl };
+  return finishTransparent(transparent);
 }
 
 export default function PhotoInput({
@@ -205,11 +205,11 @@ export default function PhotoInput({
           if (!file) return;
           setLoading(true);
           try {
-            const dataUrl = await fileToDataUrl(file); // EXIF-correct, auto-rotated, resized
+            const dataUrl = await fileToDataUrl(file); // (1) EXIF-correct, upright
             onChange(dataUrl); // show preview immediately
             setLoading(false);
 
-            // Background removal (non-blocking, falls back on error)
+            // (2–10) detour → layout → de-wrinkle (non-blocking, falls back)
             setProcessing(true);
             const processed = await processPhoto(dataUrl);
             onChange(processed.white);
@@ -229,7 +229,7 @@ export default function PhotoInput({
       >
         {value ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={value} alt="" className="h-full w-full object-cover" />
+          <img src={value} alt="" className="h-full w-full object-contain" />
         ) : (
           <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-smoke">
             <span className="text-3xl font-light">+</span>
@@ -277,6 +277,7 @@ export default function PhotoInput({
           onClose={() => setEditing(false)}
           onApply={async (edited) => {
             setEditing(false);
+            setProcessing(true);
             try {
               const im = await loadImage(edited);
               const c = document.createElement("canvas");
@@ -290,33 +291,17 @@ export default function PhotoInput({
               for (let i = 3; i < d.length; i += 4) {
                 if (d[i] < 250) { hasAlpha = true; break; }
               }
-              if (hasAlpha) {
-                // Manual erase: respect the user's cut-out. Keep it transparent for
-                // the render and make a white-bg version for grids / try-on.
-                onCutout?.(edited);
-                const wc = document.createElement("canvas");
-                wc.width = c.width;
-                wc.height = c.height;
-                const wx = wc.getContext("2d")!;
-                wx.fillStyle = "#ffffff";
-                wx.fillRect(0, 0, wc.width, wc.height);
-                wx.drawImage(im, 0, 0);
-                onChange(wc.toDataURL("image/png"));
-              } else {
-                // Crop / rotation: re-run the real detouring pipeline so the result
-                // is the final processed image, not just the cropped one.
-                onChange(edited); // immediate preview while it processes
-                setProcessing(true);
-                try {
-                  const processed = await processPhoto(edited);
-                  onChange(processed.white);
-                  if (processed.cutout) onCutout?.(processed.cutout);
-                } finally {
-                  setProcessing(false);
-                }
-              }
+              // "Apply" runs the FULL pipeline (detour → rotate → resize → center
+              // → light de-wrinkle), never just a crop/rotation of the original.
+              const result = hasAlpha
+                ? await finishTransparent(layoutGarment(im)) // already a cut-out → lay out + de-wrinkle
+                : await processPhoto(edited); // opaque crop → detour + full pipeline
+              onChange(result.white);
+              if (result.cutout) onCutout?.(result.cutout);
             } catch {
               onChange(edited);
+            } finally {
+              setProcessing(false);
             }
           }}
         />
