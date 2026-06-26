@@ -24,6 +24,7 @@ function DressingContent() {
   const [filter, setFilter] = useState<Category | "tous">("tous");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Garment | null>(null);
+  const [fixingShoes, setFixingShoes] = useState(false);
 
   useEffect(() => {
     fetch("/api/garments")
@@ -63,6 +64,20 @@ function DressingContent() {
     });
   }
 
+  async function fixShoesOrientation() {
+    setFixingShoes(true);
+    try {
+      const res = await fetch("/api/garments/fix-shoes", { method: "POST" });
+      if (res.ok) {
+        const r = await fetch("/api/garments");
+        const d = await r.json();
+        setGarments(d.garments ?? []);
+      }
+    } finally {
+      setFixingShoes(false);
+    }
+  }
+
   async function rotateGarment(g: Garment) {
     try {
       const photoRot = await rotated90(g.photo);
@@ -97,9 +112,21 @@ function DressingContent() {
             </span>
           </h1>
         </div>
-        <button className="btn-primary" onClick={() => setAdding(true)}>
-          {t("dressing.add")}
-        </button>
+        <div className="flex items-center gap-3">
+          {garments.some((g) => g.category === "chaussures") && (
+            <button
+              type="button"
+              onClick={fixShoesOrientation}
+              disabled={fixingShoes}
+              className="rounded-full border border-linen px-4 py-2.5 text-sm text-ink transition hover:border-gold disabled:opacity-60 cursor-pointer"
+            >
+              {fixingShoes ? t("dressing.fixing_shoes") : t("dressing.fix_shoes")}
+            </button>
+          )}
+          <button className="btn-primary" onClick={() => setAdding(true)}>
+            {t("dressing.add")}
+          </button>
+        </div>
       </div>
 
       {pickMode && (

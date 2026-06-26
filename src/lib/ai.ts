@@ -132,6 +132,67 @@ export async function analyzeGarmentPhoto(
 }
 
 // ---------------------------------------------------------------------------
+// Orientation des chaussures : profil latéral, bout à droite, horizontal
+// ---------------------------------------------------------------------------
+
+const ShoeOrientationSchema = z.object({
+  rotate: z
+    .enum(["0", "90", "180", "270"])
+    .describe(
+      "Clockwise rotation in degrees to apply so the shoe becomes a horizontal side profile (sole at the bottom, lying flat)",
+    ),
+  flipHorizontal: z
+    .boolean()
+    .describe(
+      "After the rotation, mirror the image left-right so the TOE points to the RIGHT and the HEEL to the LEFT",
+    ),
+});
+
+export type ShoeOrientation = z.infer<typeof ShoeOrientationSchema>;
+
+/**
+ * Determines the transform (rotation + horizontal flip) needed to bring a shoe
+ * photo to the mandatory layout: side profile, perfectly horizontal, toe pointing
+ * RIGHT, heel LEFT, sole at the bottom. Returns the no-op transform on failure.
+ */
+export async function analyzeShoeOrientation(
+  base64: string,
+  mediaType: string,
+): Promise<ShoeOrientation> {
+  try {
+    const response = await client().messages.parse({
+      model: MODEL,
+      max_tokens: 1024,
+      system:
+        "You orient shoe product photos. The required final layout is: a single shoe seen in SIDE PROFILE, perfectly horizontal, the TOE pointing to the RIGHT, the HEEL to the LEFT, and the SOLE at the bottom. Given a shoe image, output the clockwise rotation (0/90/180/270) and whether a horizontal mirror is then needed to reach exactly that layout. If the shoe is shown from the top, front or 3/4, pick the rotation/flip that gets closest to a right-facing side profile.",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+                data: base64,
+              },
+            },
+            {
+              type: "text",
+              text: "What clockwise rotation and horizontal flip make this shoe a horizontal side profile with the toe pointing right and the heel left?",
+            },
+          ],
+        },
+      ],
+      output_config: { format: zodOutputFormat(ShoeOrientationSchema) },
+    });
+    return response.parsed_output ?? { rotate: "0", flipHorizontal: false };
+  } catch {
+    return { rotate: "0", flipHorizontal: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Analyse d'une photo de tenue déjà portée (référence de style)
 // ---------------------------------------------------------------------------
 

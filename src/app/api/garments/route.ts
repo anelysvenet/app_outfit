@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { mutateDb, newId, readDb } from "@/lib/db";
 import { parseDataUrl, saveImage } from "@/lib/storage";
+import { orientShoeImage } from "@/lib/shoes";
 import { CATEGORIES, type Category, type Garment } from "@/lib/types";
 
 export async function GET() {
@@ -35,11 +36,30 @@ export async function POST(req: Request) {
     }
 
     const { base64, mediaType } = parseDataUrl(body.photoDataUrl);
-    const photo = await saveImage(base64, mediaType);
+
+    let photo: string | undefined;
     let cutout: string | undefined;
-    if (body.cutoutDataUrl?.startsWith("data:")) {
-      const c = parseDataUrl(body.cutoutDataUrl);
-      cutout = await saveImage(c.base64, c.mediaType);
+
+    // Shoes follow the mandatory orientation rule: side profile, horizontal,
+    // toe to the right, centered, transparent. Apply it before saving.
+    if (body.category === "chaussures") {
+      const srcDataUrl = body.cutoutDataUrl?.startsWith("data:")
+        ? body.cutoutDataUrl
+        : body.photoDataUrl;
+      const src = parseDataUrl(srcDataUrl);
+      const oriented = await orientShoeImage(src.base64, src.mediaType);
+      if (oriented) {
+        photo = await saveImage(parseDataUrl(oriented.photoDataUrl).base64, "image/png");
+        cutout = await saveImage(parseDataUrl(oriented.cutoutDataUrl).base64, "image/png");
+      }
+    }
+
+    if (!photo) {
+      photo = await saveImage(base64, mediaType);
+      if (body.cutoutDataUrl?.startsWith("data:")) {
+        const c = parseDataUrl(body.cutoutDataUrl);
+        cutout = await saveImage(c.base64, c.mediaType);
+      }
     }
 
     const garment: Garment = {
