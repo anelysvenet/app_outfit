@@ -49,8 +49,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 /**
  * Steps 5–9, working from a TRANSPARENT image only (never the full photo):
  *  5. measure the garment's bounding box,
- *  6. KEEP the garment in its natural (as-photographed) orientation — never lay
- *     it down or auto-rotate it,
+ *  6. auto-straighten: if the garment is lying down (landscape), rotate it 90°
+ *     so it stands UPRIGHT (portrait) — automatically, nothing to do by hand,
  *  7. keep the exact proportions (no stretching),
  *  8. place it in a transparent canvas with a margin all around so it fits the
  *     frame,
@@ -83,21 +83,38 @@ function layoutGarment(img: HTMLImageElement): string {
   const bw = maxX - minX + 1;
   const bh = maxY - minY + 1;
 
-  // (6–7) crop tightly, NO rotation — keep the garment upright as photographed
   const crop = document.createElement("canvas");
   crop.width = bw;
   crop.height = bh;
   crop.getContext("2d")!.drawImage(c, minX, minY, bw, bh, 0, 0, bw, bh);
 
+  // (6–7) if the garment is lying down (wider than tall), rotate it 90° clockwise
+  // so it stands upright (taller than wide). Proportions preserved.
+  let g: HTMLCanvasElement = crop;
+  let gw = bw;
+  let gh = bh;
+  if (bw > bh) {
+    const r = document.createElement("canvas");
+    r.width = bh;
+    r.height = bw;
+    const rx = r.getContext("2d")!;
+    rx.translate(bh, 0);
+    rx.rotate(Math.PI / 2);
+    rx.drawImage(crop, 0, 0);
+    g = r;
+    gw = bh;
+    gh = bw;
+  }
+
   // (8–9) transparent canvas, uniform margin all around, centered — so the
   // garment fits entirely inside the frame
-  const margin = Math.round(Math.max(bw, bh) * 0.08);
-  const cw = bw + margin * 2;
-  const ch = bh + margin * 2;
+  const margin = Math.round(Math.max(gw, gh) * 0.08);
+  const cw = gw + margin * 2;
+  const ch = gh + margin * 2;
   const out = document.createElement("canvas");
   out.width = cw;
   out.height = ch;
-  out.getContext("2d")!.drawImage(crop, margin, margin);
+  out.getContext("2d")!.drawImage(g, margin, margin);
   return out.toDataURL("image/png");
 }
 
