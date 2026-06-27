@@ -73,26 +73,25 @@ export default function HomePage() {
       <motion.div variants={item}>
         <Link
           href="/generer"
-          className="group relative block overflow-hidden rounded-3xl bg-ink p-8 text-ivory shadow-card transition hover:shadow-lift"
+          className="group relative block overflow-hidden rounded-3xl bg-[#DDB8A8] p-8 text-ink shadow-card transition hover:shadow-lift"
         >
-          <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-champagne/10 blur-3xl" />
-          <div className="pointer-events-none absolute bottom-0 left-0 h-32 w-full bg-gradient-to-t from-black/20 to-transparent" />
+          <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-gold/10 blur-3xl" />
 
-          <SparklesIcon className="relative h-5 w-5 text-champagne/80" />
+          <SparklesIcon className="relative h-5 w-5 text-gold" />
 
           <div className="relative mt-6">
-            <p className="text-[9px] uppercase tracking-[0.45em] text-champagne/50">
+            <p className="text-[9px] uppercase tracking-[0.45em] text-gold">
               {t("home.create_label")}
             </p>
             <h2 className="font-display mt-2 text-5xl leading-tight">
               {createLine1}<br />{createLine2}
             </h2>
-            <p className="mt-3 max-w-xs text-sm leading-relaxed text-ivory/50">
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-ink/60">
               {t("home.create_sub")}
             </p>
           </div>
 
-          <div className="relative mt-8 flex items-center gap-1.5 text-sm text-champagne">
+          <div className="relative mt-8 flex items-center gap-1.5 text-sm text-ink">
             {t("home.compose")}
             <span className="inline-block transition-transform duration-200 group-hover:translate-x-1.5">→</span>
           </div>
