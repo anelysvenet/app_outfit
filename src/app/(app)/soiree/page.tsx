@@ -49,7 +49,7 @@ export default function SoireePage() {
     <div className="-mx-5 -my-10 min-h-screen bg-night text-ivory">
 
       {/* ── Hero ── */}
-      <div className="relative overflow-hidden px-5 pb-12 pt-10">
+      <div className="relative overflow-hidden px-5 pb-12 pt-10 text-center">
         <div className="pointer-events-none absolute -top-28 left-1/3 h-[28rem] w-[28rem] rounded-full bg-champagne/[0.07] blur-3xl" />
         <div className="pointer-events-none absolute -right-12 top-4 h-64 w-64 rounded-full bg-terracotta/[0.05] blur-3xl" />
 
@@ -64,7 +64,7 @@ export default function SoireePage() {
         <motion.h1
           initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.07 }}
-          className="font-display mt-1 text-5xl italic"
+          className="font-display mt-1 text-5xl italic text-gold"
         >
           {t("evening.title")}
         </motion.h1>
@@ -72,7 +72,7 @@ export default function SoireePage() {
         <motion.p
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="mt-3 max-w-sm text-sm leading-relaxed text-ivory/45"
+          className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-ivory/45"
         >
           {t("evening.subtitle")}
         </motion.p>
